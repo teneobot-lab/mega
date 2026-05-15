@@ -6,7 +6,7 @@ export const getInventorySummary = async (req: Request, res: Response) => {
     const summary = await prisma.item.findMany({
       where: { isDeleted: false },
       include: {
-        Stocks: {
+        Stock: {
           include: { warehouse: true }
         }
       }
@@ -16,11 +16,11 @@ export const getInventorySummary = async (req: Request, res: Response) => {
       id: item.id,
       code: item.code,
       name: item.name,
-      category: item.category,
-      unit: item.unit,
+      categoryId: item.categoryId,
+      unit: "pcs",
       minStock: item.minStock,
-      totalQty: item.Stocks.reduce((sum, s) => sum + s.qty, 0),
-      warehouses: item.Stocks.map(s => ({
+      totalQty: (item as any).Stock.reduce((sum: number, s: any) => sum + s.qty, 0),
+      warehouses: (item as any).Stock.map((s: any) => ({
         name: s.warehouse.name,
         qty: s.qty
       }))
@@ -67,9 +67,9 @@ export const getStockCard = async (req: Request, res: Response) => {
 
 export const getStockAdjusments = async (req: Request, res: Response) => {
     try {
-        const adjs = await prisma.stockAdjustment.findMany({
-            where: { isDeleted: false },
-            include: { item: true, warehouse: true },
+        const adjs = await prisma.inventoryTransaction.findMany({
+            where: { type: "ADJUSTMENT" },
+            include: { Lines: { include: { item: true } }, warehouseTo: true },
             orderBy: { date: 'desc' }
         });
         res.json(adjs);

@@ -11,7 +11,7 @@ export function exportToExcel(data: any[], fileName: string, sheetName: string =
 }
 
 export function exportToPDF(columns: string[], data: any[][], title: string, fileName: string) {
-  const doc = jsPDF();
+  const doc = new jsPDF();
   
   // Header
   doc.setFontSize(18);

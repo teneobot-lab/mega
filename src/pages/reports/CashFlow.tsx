@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { FileDown, Printer, ChevronLeft, TrendingUp, TrendingDown, Wallet } from "lucide-react";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { useNavigate } from "react-router-dom";
-import { exportToExcel, exportToPDF } from "../../lib/export-utils";
-
-import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
 import { FileDown, Printer, ChevronLeft, ArrowRightLeft } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "../../components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { exportToPDF } from "../../lib/export-utils";
 
 type CashFlowSection = {

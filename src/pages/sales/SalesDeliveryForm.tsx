@@ -221,7 +221,6 @@ export default function SalesDeliveryForm() {
                 </div>
             </div>
         </div>
-      </div>
     </FullscreenFormLayout>
   );
 }

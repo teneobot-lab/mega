@@ -1,6 +1,7 @@
 import express from "express";
 import * as inventoryController from "../controllers/inventoryController";
 import { authenticateToken } from "../middleware/auth";
+import { prisma } from "../prisma";
 
 const router = express.Router();
 

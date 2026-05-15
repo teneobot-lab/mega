@@ -29,7 +29,7 @@ export default function Dashboard() {
           Dashboard Eksekutif
         </h1>
         <p className="text-zinc-500 font-medium text-sm flex items-center gap-2">
-            <div className="w-8 h-[2px] bg-red-500" />
+            <span className="w-8 h-[2px] bg-red-500" />
             Ikhtisar posisi keuangan dan operasional real-time
         </p>
       </div>

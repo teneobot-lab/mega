@@ -226,7 +226,6 @@ export default function PurchaseReceiptForm() {
                 </div>
             </div>
         </div>
-      </div>
     </FullscreenFormLayout>
   );
 }

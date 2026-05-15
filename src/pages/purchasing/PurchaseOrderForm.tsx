@@ -163,7 +163,6 @@ export default function PurchaseOrderForm() {
             />
         </div>
       </div>
-      </div>
     </FullscreenFormLayout>
   );
 }
