@@ -11,24 +11,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>({
-    id: "admin-1",
-    email: "admin@accurate.local",
-    name: "Administrator",
-    role: "ADMIN"
-  } as any);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check session on mount 
-    // Mock successful login immediately since user hasn't built server
-    setUser({
-      id: "admin-1",
-      email: "admin@accurate.local",
-      name: "Administrator",
-      role: "ADMIN"
-    } as any);
-    setLoading(false);
+    const token = localStorage.getItem("token");
+    if (token) {
+      // In a real app, fetch user data here using the token
+      // For now, just set loading to false since we cannot fetch it without an API call
+      setLoading(false);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const login = (token: string, userData: User) => {
