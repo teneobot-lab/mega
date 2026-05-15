@@ -1,0 +1,532 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Catatan: Menggunakan SQLite untuk lingkungan pengembangan/prototyping di Sandbox ini.
+// Untuk beralih ke MySQL, cukup ubah provider="mysql" dan set DATABASE_URL di .env.
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ==========================================
+// 1. AUTH & USER MANAGEMENT
+// ==========================================
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  password       String
+  name           String
+  roleId         String
+  role           Role      @relation(fields: [roleId], references: [id])
+  isActive       Boolean   @default(true)
+  isDeleted      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions       Session[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // Admin, Kasir, Gudang, Akuntan
+  description String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions Permission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  roleId      String
+  role        Role     @relation(fields: [roleId], references: [id])
+  module      String   // e.g., "PURCHASING", "SALES", "INVENTORY"
+  canRead     Boolean  @default(false)
+  canCreate   Boolean  @default(false)
+  canUpdate   Boolean  @default(false)
+  canDelete   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([roleId, module])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ==========================================
+// 2. MASTER DATA
+// ==========================================
+
+model Account {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  type          String   // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  currencyId    String?
+  currency      Currency? @relation(fields: [currencyId], references: [id])
+  balance       Float    @default(0) // Untuk mempermudah, bisa dihitung dari jurnal
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  JournalEntries JournalEntry[]
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  type          String   // CUSTOMER, SUPPLIER, EMPLOYEE (Salesman)
+  code          String   @unique
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  creditLimit   Float?   @default(0)
+  termsDays     Int?     @default(0) // Termin pembayaran dalam hari
+  balance       Float    @default(0) // AR/AP Balance
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  SalesOrders     SalesOrder[]
+  PurchaseOrders  PurchaseOrder[]
+  Invoices        Invoice[]
+  Payments        Payment[]
+  Projects        Project[]
+}
+
+model Item {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  categoryId    String?
+  category      ItemCategory? @relation(fields: [categoryId], references: [id])
+  baseUomId     String
+  baseUom       Uom      @relation(fields: [baseUomId], references: [id])
+  buyPrice      Float    @default(0)
+  sellPrice     Float    @default(0)
+  minStock      Float    @default(0)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Stock        WarehouseStock[]
+  Polines      PurchaseOrderLine[]
+  Solines      SalesOrderLine[]
+  InvLines     InvoiceLine[]
+  TransLines   InventoryTransactionLine[]
+  StockCard    StockCard[]
+}
+
+model ItemCategory {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Items         Item[]
+}
+
+model Uom {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Items         Item[]
+}
+
+model Warehouse {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  location      String?
+  isDefault     Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Stocks        WarehouseStock[]
+  TransactionsTo InventoryTransaction[] @relation("WarehouseTo")
+  TransactionsFrom InventoryTransaction[] @relation("WarehouseFrom")
+  StockCard     StockCard[]
+}
+
+model WarehouseStock {
+  id            String   @id @default(uuid())
+  warehouseId   String
+  warehouse     Warehouse @relation(fields: [warehouseId], references: [id])
+  itemId        String
+  item          Item      @relation(fields: [itemId], references: [id])
+  qty           Float     @default(0)
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([warehouseId, itemId])
+}
+
+model Department {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Transactions  Journal[]
+  FixedAssets   FixedAsset[] // Added relation
+}
+
+model Project {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  description   String?
+  customerId    String?
+  customer      Contact? @relation(fields: [customerId], references: [id])
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String   @default("ACTIVE") // ACTIVE, CLOSED
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Transactions  Journal[]
+}
+
+model Tax {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String   // e.g., PPN 11%
+  rate          Float    // e.g., 0.11
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Invoices      Invoice[]
+  PurchaseOrders PurchaseOrder[]
+}
+
+model Currency {
+  id            String   @id @default(uuid())
+  code          String   @unique // IDR, USD
+  name          String
+  rate          Float    @default(1.0) // Exchange rate to base currency
+  isBase        Boolean  @default(false)
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Accounts      Account[]
+}
+
+// ==========================================
+// 3. MODUL PEMBELIAN (PURCHASING)
+// 4. MODUL PENJUALAN (SALES)
+// ==========================================
+
+model PurchaseOrder {
+  id            String   @id @default(uuid())
+  poNumber      String   @unique
+  date          DateTime
+  supplierId    String
+  supplier      Contact  @relation(fields: [supplierId], references: [id])
+  status        String   // DRAFT, APPROVED, RECEIVED, CLOSED, CANCELLED
+  taxId         String?
+  tax           Tax?     @relation(fields: [taxId], references: [id])
+  subTotal      Float
+  taxAmount     Float
+  total         Float
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Lines         PurchaseOrderLine[]
+  Invoices      Invoice[]
+}
+
+model PurchaseOrderLine {
+  id            String   @id @default(uuid())
+  poId          String
+  po            PurchaseOrder @relation(fields: [poId], references: [id])
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  qty           Float
+  price         Float
+  total         Float
+}
+
+model SalesOrder {
+  id            String   @id @default(uuid())
+  soNumber      String   @unique
+  date          DateTime
+  customerId    String
+  customer      Contact  @relation(fields: [customerId], references: [id])
+  status        String   // DRAFT, APPROVED, SHIPPED, CLOSED, CANCELLED
+  subTotal      Float
+  taxAmount     Float
+  total         Float
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Lines         SalesOrderLine[]
+  Invoices      Invoice[]
+}
+
+model SalesOrderLine {
+  id            String   @id @default(uuid())
+  soId          String
+  so            SalesOrder @relation(fields: [soId], references: [id])
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  qty           Float
+  price         Float
+  total         Float
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  invNumber     String   @unique
+  type          String   // PURCHASE, SALES, PURCHASE_RETURN, SALES_RETURN
+  date          DateTime
+  dueDate       DateTime?
+  contactId     String
+  contact       Contact  @relation(fields: [contactId], references: [id])
+  poId          String?
+  po            PurchaseOrder? @relation(fields: [poId], references: [id])
+  soId          String?
+  so            SalesOrder? @relation(fields: [soId], references: [id])
+  status        String   // UNPAID, PARTIAL, PAID, VOID
+  taxId         String?
+  tax           Tax?     @relation(fields: [taxId], references: [id])
+  subTotal      Float
+  taxAmount     Float
+  total         Float
+  paidAmount    Float    @default(0)
+  balance       Float    // total - paidAmount
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Lines         InvoiceLine[]
+  Payments      PaymentLine[]
+  Journals      Journal[]
+}
+
+model InvoiceLine {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  qty           Float
+  price         Float
+  total         Float
+}
+
+// ==========================================
+// 5. MODUL INVENTORY
+// ==========================================
+
+model InventoryTransaction {
+  id            String   @id @default(uuid())
+  transNumber   String   @unique
+  type          String   // RECEIPT, SHIPMENT, TRANSFER, ADJUSTMENT
+  date          DateTime
+  warehouseToId String?
+  warehouseTo   Warehouse? @relation("WarehouseTo", fields: [warehouseToId], references: [id])
+  warehouseFromId String?
+  warehouseFrom Warehouse? @relation("WarehouseFrom", fields: [warehouseFromId], references: [id])
+  reference     String?  // e.g., PO-001 or INV-001
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Lines         InventoryTransactionLine[]
+  Journals      Journal[]
+}
+
+model InventoryTransactionLine {
+  id            String   @id @default(uuid())
+  transactionId String
+  transaction   InventoryTransaction @relation(fields: [transactionId], references: [id])
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  qty           Float
+  cost          Float    @default(0) // COGS / Unit Cost at the time
+}
+
+// ==========================================
+// 6. MODUL KAS, BANK, & PAYMENTS
+// ==========================================
+
+model Payment {
+  id            String   @id @default(uuid())
+  payNumber     String   @unique
+  type          String   // AR_RECEIPT, AP_PAYMENT, CASH_IN, CASH_OUT, TRANSFER
+  date          DateTime
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id])
+  amount        Float
+  reference     String?
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Lines         PaymentLine[]
+  Journals      Journal[]
+}
+
+model PaymentLine {
+  id            String   @id @default(uuid())
+  paymentId     String
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  amount        Float
+}
+
+// ==========================================
+// 7. MODUL ASET TETAP
+// ==========================================
+
+model FixedAsset {
+  id            String   @id @default(uuid())
+  code          String   @unique
+  name          String
+  purchaseDate  DateTime
+  purchasePrice Float
+  salvageValue  Float    @default(0)
+  usefulLife    Int      // In months
+  depreciationMethod String // STRAIGHT_LINE, DOUBLE_DECLINING
+  accumDepreciation  Float @default(0)
+  status        String   // ACTIVE, DISPOSED
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Journals      Journal[]
+  Depreciations AssetDepreciation[]
+}
+
+model AssetDepreciation {
+  id            String   @id @default(uuid())
+  assetId       String
+  asset         FixedAsset @relation(fields: [assetId], references: [id])
+  date          DateTime
+  amount        Float
+  accumAmount   Float
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+model BankReconciliation {
+  id            String   @id @default(uuid())
+  accountId     String
+  date          DateTime
+  bankBalance   Float
+  systemBalance Float
+  difference    Float
+  status        String   // DRAFT, RECONCILED
+  notes         String?
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model StockCard {
+  id            String   @id @default(uuid())
+  date          DateTime
+  itemId        String
+  item          Item     @relation(fields: [itemId], references: [id])
+  warehouseId   String?
+  warehouse     Warehouse? @relation(fields: [warehouseId], references: [id])
+  transType     String   // IN, OUT, ADJUST, TRANSFER
+  transNumber   String?
+  qtyIn         Float    @default(0)
+  qtyOut        Float    @default(0)
+  balance       Float
+  cost          Float    @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// 9. RECURRING TRANSACTIONS
+// ==========================================
+
+model RecurringTransaction {
+  id            String   @id @default(uuid())
+  name          String
+  type          String   // GENERAL_JOURNAL, EXPENSE, INVOICE
+  frequency     String   // DAILY, WEEKLY, MONTHLY, YEARLY
+  nextDate      DateTime
+  amount        Float
+  status        String   @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED
+  payload       String   // JSON string of the transaction data
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Journal {
+  id            String   @id @default(uuid())
+  journalNumber String   @unique // e.g., JV-0001
+  date          DateTime
+  reference     String?
+  description   String?
+  isAuto        Boolean  @default(false) // True if generated from module
+  
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [id])
+
+  // Relations to source document
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  paymentId     String?
+  payment       Payment? @relation(fields: [paymentId], references: [id])
+  invTransId    String?
+  invTrans      InventoryTransaction? @relation(fields: [invTransId], references: [id])
+  assetId       String?
+  asset         FixedAsset? @relation(fields: [assetId], references: [id])
+
+  isDeleted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  Entries       JournalEntry[]
+}
+
+model JournalEntry {
+  id            String   @id @default(uuid())
+  journalId     String
+  journal       Journal  @relation(fields: [journalId], references: [id])
+  accountId     String
+  account       Account  @relation(fields: [accountId], references: [id])
+  debit         Float    @default(0)
+  credit        Float    @default(0)
+  description   String?
+}
