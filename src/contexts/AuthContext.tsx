@@ -16,17 +16,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) {
-      // In a real app, fetch user data here using the token
-      // For now, just set loading to false since we cannot fetch it without an API call
-      setLoading(false);
-    } else {
-      setLoading(false);
+    const userStr = localStorage.getItem("user");
+    if (token && userStr) {
+      try {
+        setUser(JSON.parse(userStr));
+      } catch (e) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
     }
+    setLoading(false);
   }, []);
 
   const login = (token: string, userData: User) => {
     localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(userData));
     setUser(userData);
   };
 
@@ -35,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {}
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setUser(null);
   };
 

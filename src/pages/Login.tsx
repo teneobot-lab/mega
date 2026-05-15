@@ -30,6 +30,7 @@ export default function Login() {
       }
       
       login(data.token, data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
       toast.success("Login Berhasil!");
       navigate("/");
     } catch (error: any) {
