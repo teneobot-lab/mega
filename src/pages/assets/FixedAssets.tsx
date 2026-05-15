@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, Trash2, Box, Calendar, Calculator, TrendingDown } from "lucide-react";
 import { 
   Table, 
   TableBody, 
@@ -15,7 +16,6 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger,
   DialogFooter
 } from "../../components/ui/dialog";
 import { Label } from "../../components/ui/label";
@@ -24,24 +24,12 @@ import { Input } from "../../components/ui/input";
 export default function FixedAssets() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [disposeOpen, setDisposeOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
+  const navigate = useNavigate();
 
   const [disposeDate, setDisposeDate] = useState(new Date().toISOString().split('T')[0]);
   const [disposeAmount, setDisposeAmount] = useState(0);
-
-  // ... form states for creation ...
-
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
-  const [purchasePrice, setPurchasePrice] = useState(0);
-  const [salvageValue, setSalvageValue] = useState(0);
-  const [usefulLife, setUsefulLife] = useState(0);
-  const [depreciationMethod, setDepreciationMethod] = useState("STRAIGHT_LINE");
-  const [accountId, setAccountId] = useState("");
-  const [accounts, setAccounts] = useState<any[]>([]);
 
   const fetchData = async () => {
     try {
@@ -56,52 +44,9 @@ export default function FixedAssets() {
     }
   };
 
-  const loadAccounts = async () => {
-     try {
-       const res = await fetch("/api/master/accounts", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}});
-       if(res.ok) {
-           const data = await res.json();
-           const assetAccounts = data.filter((a: any) => a.type === 'ASSET' || a.type === 'FIXED_ASSET');
-           setAccounts(assetAccounts);
-           if(assetAccounts.length > 0) setAccountId(assetAccounts[0].id);
-       }
-     } catch(e) {}
-  };
-
   useEffect(() => {
     fetchData();
-    loadAccounts();
   }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if(!accountId) return toast.error("Pilih Akun Aset Terlebih Dahulu");
-
-    try {
-      const res = await fetch("/api/assets", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ 
-          code, name, purchaseDate, 
-          purchasePrice, salvageValue, 
-          usefulLife, depreciationMethod, accountId
-        })
-      });
-      if(!res.ok) throw new Error((await res.json()).message);
-      toast.success("Aset berhasil ditambahkan");
-      setOpen(false);
-      
-      // Reset form
-      setCode(""); setName(""); setPurchasePrice(0); setSalvageValue(0); setUsefulLife(0);
-      
-      fetchData();
-    } catch(e: any) {
-      toast.error(e.message || "Gagal menyimpan aset");
-    }
-  };
 
   const handleDispose = async () => {
     if(!selectedAsset) return;
@@ -130,125 +75,110 @@ export default function FixedAssets() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-           <h1 className="text-2xl font-bold tracking-tight">Aset Tetap (Fixed Assets)</h1>
-           <p className="text-zinc-500">Kelola daftar aset tetap dan penyusutan perusahaan.</p>
+        <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic uppercase italic">Manajemen Aset Tetap</h1>
+            <p className="text-xs text-zinc-500 font-medium">Monitoring perolehan, penyusutan, dan disposal aset perusahaan</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>Tambah Aset Tetap</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Daftarkan Aset Baru</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Kode Aset</Label>
-                    <Input required value={code} onChange={e => setCode(e.target.value)} placeholder="AST-001" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nama Aset</Label>
-                    <Input required value={name} onChange={e => setName(e.target.value)} placeholder="Mobil Box Operasional" />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tanggal Beli</Label>
-                    <Input type="date" required value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Harga Beli (Rp)</Label>
-                    <Input type="number" required min={0} value={purchasePrice} onChange={e => setPurchasePrice(Number(e.target.value))} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nilai Sisa (Salvage Value)</Label>
-                    <Input type="number" required min={0} value={salvageValue} onChange={e => setSalvageValue(Number(e.target.value))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Umur Ekonomis (Bulan)</Label>
-                    <Input type="number" required min={1} value={usefulLife} onChange={e => setUsefulLife(Number(e.target.value))} />
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Metode Penyusutan</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={depreciationMethod} onChange={e => setDepreciationMethod(e.target.value)}>
-                        <option value="STRAIGHT_LINE">Garis Lurus (Straight Line)</option>
-                        {/* More methods can be added later */}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Akun Aset (Neraca)</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={accountId} onChange={e => setAccountId(e.target.value)} required>
-                        {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button type="submit">Simpan Aset</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button 
+            onClick={() => navigate("/assets/fixed/new")}
+            className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-bold gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+        >
+            Tambah Aset Baru
+        </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="grid grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4">
+              <div className="p-3 bg-blue-50 rounded-xl text-blue-600"><Box className="w-6 h-6" /></div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Total Unit Aset</span>
+                  <span className="text-xl font-black text-[#1e3a5f]">{data.filter(d => d.status === 'ACTIVE').length} Aset Aktif</span>
+              </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4">
+              <div className="p-3 bg-green-50 rounded-xl text-green-600"><Calculator className="w-6 h-6" /></div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Nilai Perolehan</span>
+                  <span className="text-xl font-black text-[#1e3a5f]">Rp {data.reduce((s,d) => s+(d.status === 'ACTIVE' ? d.purchasePrice : 0), 0).toLocaleString()}</span>
+              </div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4">
+              <div className="p-3 bg-red-50 rounded-xl text-red-600"><TrendingDown className="w-6 h-6" /></div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Akumulasi Penyusutan</span>
+                  <span className="text-xl font-black text-red-600">Rp 0</span>
+              </div>
+          </div>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kode</TableHead>
-              <TableHead>Nama Aset</TableHead>
+          <TableHeader className="bg-zinc-50">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest">
+              <TableHead className="pl-6">Identitas Aset</TableHead>
               <TableHead>Tgl Beli</TableHead>
               <TableHead className="text-right">Harga Beli</TableHead>
-              <TableHead className="text-right">Umur Ek. (Bulan)</TableHead>
-              <TableHead>Penyusutan</TableHead>
+              <TableHead className="text-right">Metode & Umur</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[100px] text-center">Aksi</TableHead>
+              <TableHead className="w-[100px] text-center pr-6">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-               <TableRow><TableCell colSpan={8} className="text-center">Loading...</TableCell></TableRow>
+               <TableRow><TableCell colSpan={6} className="text-center py-20">Loading aset...</TableCell></TableRow>
             ) : data.length === 0 ? (
-               <TableRow><TableCell colSpan={8} className="text-center">Belum ada aset tetap</TableCell></TableRow>
+               <TableRow>
+                   <TableCell colSpan={6} className="text-center py-24">
+                        <div className="flex flex-col items-center gap-3 opacity-20">
+                            <Box className="h-16 w-16" />
+                            <p className="text-sm font-black uppercase tracking-widest">Belum ada aset tetap</p>
+                        </div>
+                   </TableCell>
+               </TableRow>
             ) : (
                 data.map(d => (
-                    <TableRow key={d.id} className={d.status === 'DISPOSED' ? 'bg-zinc-50 opacity-60' : ''}>
-                        <TableCell className="font-medium">{d.code}</TableCell>
-                        <TableCell>{d.name}</TableCell>
-                        <TableCell>{new Date(d.purchaseDate).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">Rp {d.purchasePrice.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{d.usefulLife}</TableCell>
-                        <TableCell>
-                            {d.depreciationMethod === 'STRAIGHT_LINE' ? 'Garis Lurus' : d.depreciationMethod}
+                    <TableRow 
+                        key={d.id} 
+                        className={`group h-16 hover:bg-zinc-50 transition-colors ${d.status === 'DISPOSED' ? 'bg-zinc-50 opacity-60 italic' : ''}`}
+                    >
+                        <TableCell className="pl-6" onClick={() => navigate(`/assets/fixed/${d.id}`)}>
+                            <div className="flex flex-col">
+                                <span className="font-black text-[#1e3a5f] group-hover:underline cursor-pointer">{d.name}</span>
+                                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{d.code}</span>
+                            </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-bold text-zinc-500">
+                             <div className="flex items-center gap-1.5 uppercase">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(d.purchaseDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                             </div>
+                        </TableCell>
+                        <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums">Rp {d.purchasePrice.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                             <div className="flex flex-col text-[10px] font-bold uppercase tracking-widest">
+                                <span className="text-zinc-400">Straight Line</span>
+                                <span className="text-blue-500">{d.usefulLife} Bulan</span>
+                             </div>
                         </TableCell>
                         <TableCell>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                                 d.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-zinc-200 text-zinc-600'
                             }`}>
                                 {d.status}
                             </span>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center pr-6">
                             {d.status === 'ACTIVE' && (
                                 <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full"
                                     onClick={() => {
                                         setSelectedAsset(d);
                                         setDisposeOpen(true);
                                     }}
                                 >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-4 h-4" />
                                 </Button>
                             )}
                         </TableCell>
@@ -260,29 +190,32 @@ export default function FixedAssets() {
       </div>
 
       <Dialog open={disposeOpen} onOpenChange={setDisposeOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md rounded-3xl p-8 border-none shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-red-700">
-              <AlertCircle className="w-5 h-5 mr-2" /> Disposal Aset Tetap
+            <DialogTitle className="flex items-center text-red-700 font-black italic uppercase tracking-tighter text-2xl">
+              <AlertCircle className="w-6 h-6 mr-3" /> Disposal Aset
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-red-50 border border-red-100 rounded text-xs text-red-800">
-              Anda akan menghentikan penggunaan aset <strong>{selectedAsset?.name}</strong>. 
-              Tindakan ini akan menghentikan penyusutan otomatis dan mencatat penghapusan aset.
+          <div className="space-y-6 py-6">
+            <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-800 leading-relaxed font-bold">
+              PERHATIAN: Anda akan menghentikan penggunaan aset <span className="underline">{selectedAsset?.name}</span>. 
+              Penyusutan otomatis akan dihentikan dan jurnal pembalik akan dibuat secara otomatis.
             </div>
             <div className="space-y-2">
-              <Label>Tanggal Disposal</Label>
-              <Input type="date" value={disposeDate} onChange={e => setDisposeDate(e.target.value)} />
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Tanggal Disposal</Label>
+              <Input type="date" className="h-10 border-zinc-300 font-bold" value={disposeDate} onChange={e => setDisposeDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Harga Jual / Nilai Disposal (Rp)</Label>
-              <Input type="number" value={disposeAmount} onChange={e => setDisposeAmount(Number(e.target.value))} placeholder="0" />
+              <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Nilai disposal / Harga Jual Akhir</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold opacity-30">Rp</span>
+                <Input type="number" className="h-12 pl-10 border-zinc-300 text-xl font-black italic italic" value={disposeAmount} onChange={e => setDisposeAmount(Number(e.target.value))} placeholder="0" />
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDisposeOpen(false)}>Batal</Button>
-            <Button variant="destructive" onClick={handleDispose}>Konfirmasi Disposal</Button>
+          <DialogFooter className="gap-3 sm:justify-start">
+            <Button variant="destructive" className="flex-1 h-12 font-black uppercase italic tracking-widest rounded-xl" onClick={handleDispose}>Konfirmasi Disposal</Button>
+            <Button variant="outline" className="flex-1 h-12 font-bold uppercase tracking-widest rounded-xl" onClick={() => setDisposeOpen(false)}>Batal</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

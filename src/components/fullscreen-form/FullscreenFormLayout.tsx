@@ -52,7 +52,7 @@ export const FullscreenFormLayout: React.FC<FullscreenFormLayoutProps> = ({
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200, duration: 0.3 }}
-        className="fixed inset-0 z-[1000] bg-[#f8fafc] flex flex-col h-screen w-screen overflow-hidden text-zinc-900"
+        className="fixed inset-0 z-[1000] bg-white flex flex-col h-screen w-screen overflow-hidden text-[#1A1A2E]"
       >
         <FormToolbar 
           title={title}
@@ -77,22 +77,15 @@ export const FullscreenFormLayout: React.FC<FullscreenFormLayoutProps> = ({
           isAutoSaving={isAutoSaving}
         />
 
-        <div className="flex-1 overflow-y-auto relative custom-scrollbar">
+        <div className="flex-1 overflow-auto relative custom-scrollbar">
           {status === 'CANCELLED' && (
-            <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center overflow-hidden opacity-[0.03] select-none">
-              <span className="text-[20vw] font-black uppercase -rotate-45 whitespace-nowrap">
+            <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center overflow-hidden opacity-[0.05] select-none">
+              <span className="text-[12vw] font-black uppercase -rotate-45 whitespace-nowrap text-[#C0392B]">
                 CANCELLED
               </span>
             </div>
           )}
-          {watermark && (
-            <div className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center overflow-hidden opacity-[0.03] select-none">
-              <span className="text-[15vw] font-black uppercase -rotate-45 whitespace-nowrap">
-                {watermark}
-              </span>
-            </div>
-          )}
-          <div className="relative z-10 p-6 max-w-[1600px] mx-auto w-full">
+          <div className="relative z-10 w-full min-h-full">
             {children}
           </div>
         </div>

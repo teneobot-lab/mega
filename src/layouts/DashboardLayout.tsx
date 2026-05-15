@@ -42,17 +42,18 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f1f3f6] dark:bg-zinc-950 font-sans antialiased">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-64 border-r bg-[#1e3a5f] text-zinc-100 flex flex-col shadow-xl">
-        <div className="flex h-20 shrink-0 items-center justify-center border-b border-white/10 bg-black/10">
-          <div className="flex flex-col items-center">
-             <h1 className="font-black text-2xl italic tracking-tighter text-white">ACCURATE</h1>
-             <span className="text-[10px] font-bold tracking-[0.2em] text-blue-300 -mt-1 ml-1 uppercase">Cloud Replica</span>
-          </div>
+    <div className="flex min-h-screen bg-[#F0F4F8] font-sans antialiased">
+      {/* Sidebar - EXACT ACCURATE STYLE */}
+      <aside className="fixed inset-y-0 left-0 z-50 w-[200px] bg-[#1B3A6B] text-[#BDC3C7] flex flex-col shadow-none border-none">
+        {/* Logo/Title Area */}
+        <div className="flex h-12 shrink-0 items-center px-[12px] bg-[#0F2A52] shadow-inner">
+           <h1 className="font-bold text-[14px] text-white tracking-tight">ACCURATE 5</h1>
         </div>
-        <div className="flex-1 overflow-auto py-6">
-          <nav className="grid items-start px-3 text-sm font-medium space-y-1">
+
+        <div className="flex-1 overflow-auto py-2">
+          {/* Menu Items */}
+          <nav className="grid items-start text-sm font-medium">
+            <div className="text-[10px] font-bold text-[#7F9DBF] px-[12px] pt-[12px] pb-[4px] uppercase tracking-[0.5px]">Main Navigation</div>
             {sidebarLinks.map((link) => {
               const isActive = location.pathname === link.href || (link.href !== "/" && location.pathname.startsWith(link.href));
               const Icon = link.icon;
@@ -61,51 +62,39 @@ export default function DashboardLayout() {
                   key={link.href}
                   to={link.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-4 py-2.5 transition-all duration-200 group relative",
+                    "flex items-center h-[30px] px-[16px] gap-[8px] transition-all cursor-pointer",
                     isActive 
-                      ? "bg-white/10 text-white shadow-sm border-l-4 border-red-500 rounded-l-none -ml-3 pl-6" 
-                      : "text-zinc-300 hover:text-white hover:bg-white/5 active:scale-95"
+                      ? "bg-[#2B5BA8] text-white border-l-[3px] border-[#4A7FD4] px-[13px]" 
+                      : "hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <Icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-zinc-400")} />
-                  <span className={cn(isActive && "font-bold")}>{link.name}</span>
+                  <Icon className={cn("h-[14px] w-[14px]", isActive ? "text-white" : "text-inherit")} />
+                  <span className="text-[12px]">{link.name}</span>
                 </Link>
               )
             })}
           </nav>
         </div>
-        <div className="border-t border-white/10 p-4 bg-black/20">
-          <div className="mb-4 px-2">
-            <p className="text-xs font-bold text-zinc-400 tracking-widest uppercase mb-1">Signed in as:</p>
-            <p className="text-sm font-bold text-white truncate">{user.name}</p>
-            <p className="text-[10px] font-medium text-blue-300 uppercase tracking-tighter">{user.role?.name}</p>
+
+        {/* Sidebar Footer */}
+        <div className="bg-[#0F2A52] p-[12px] border-t border-white/5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-bold text-white truncate">{user.name}</span>
           </div>
           <button
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm font-bold text-red-400 hover:bg-red-500 hover:text-white transition-all active:scale-95"
+            className="flex items-center gap-2 text-[11px] text-[#7F9DBF] hover:text-white transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3 w-3" />
             Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 pl-64">
-        <header className="flex h-16 items-center justify-between border-b bg-white px-8 shadow-sm">
-          <div className="flex items-center gap-2">
-             <div className="h-6 w-1 bg-primary rounded-full" />
-             <h2 className="font-bold text-zinc-800 uppercase tracking-tight">
-                {sidebarLinks.find(l => location.pathname === l.href || (l.href !== "/" && location.pathname.startsWith(l.href)))?.name || "Dashboard"}
-             </h2>
-          </div>
-          <div className="flex items-center space-x-4">
-             <div className="text-[10px] font-bold text-zinc-400 bg-zinc-100 px-2 py-1 rounded tracking-widest uppercase">
-                Enterprise Edition
-             </div>
-          </div>
-        </header>
-        <div className="p-8 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
+      <main className="flex-1 pl-[200px] flex flex-col h-screen">
+        <div className="flex-1 overflow-auto bg-white">
           <Outlet />
         </div>
       </main>

@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-
-import { Printer } from "lucide-react";
+import { Printer, Plus, Wallet, Calendar, Users, ArrowRightSquare } from "lucide-react";
 import { PrintVoucher } from "../../components/PrintVoucher";
 
 type Payment = {
@@ -19,24 +16,14 @@ type Payment = {
   invoice?: { invNumber: string };
   account?: { name: string };
   notes?: string;
+  Journals?: any[];
 };
 
 export default function SalesPayment() {
   const [data, setData] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [printData, setPrintData] = useState<any>(null);
-  
-  // Data for Form
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [accounts, setAccounts] = useState<{id: string, name: string}[]>([]);
-
-  // State Form Baru
-  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
-  const [invoiceId, setInvoiceId] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [amount, setAmount] = useState(0);
-  const [notes, setNotes] = useState("");
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -51,72 +38,11 @@ export default function SalesPayment() {
     }
   };
 
-  const loadDependencies = async () => {
-    try {
-      const [invRes, accRes] = await Promise.all([
-        fetch("/api/sales/invoices", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-        fetch("/api/master/accounts", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-      ]);
-      const [invs, accs] = await Promise.all([invRes.json(), accRes.json()]);
-      
-      const unpaidInvs = invs.filter((i: any) => i.balance > 0);
-      setInvoices(unpaidInvs);
-      if(unpaidInvs.length > 0) {
-        setInvoiceId(unpaidInvs[0].id);
-        setAmount(unpaidInvs[0].balance);
-      }
-      
-      const assetAccs = accs.filter((a: any) => a.type === "ASSET" && (a.name.toLowerCase().includes("kas") || a.name.toLowerCase().includes("bank")));
-      setAccounts(assetAccs);
-      if(assetAccs.length > 0) setAccountId(assetAccs[0].id);
-    } catch (e) {}
-  };
-
   useEffect(() => {
     fetchData();
-    loadDependencies();
-  }, [open]);
-
-  const handleInvoiceChange = (val: string) => {
-    setInvoiceId(val);
-    const selected = invoices.find(i => i.id === val);
-    if(selected) setAmount(selected.balance);
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if(amount <= 0) return toast.error("Jumlah harus lebih dari 0");
-    
-    const selectedInv = invoices.find(i => i.id === invoiceId);
-
-    try {
-      const res = await fetch("/api/sales/payments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({
-          date: payDate,
-          contactId: selectedInv?.contactId,
-          amount,
-          notes,
-          invoiceId,
-          accountId
-        })
-      });
-      if (!res.ok) throw new Error((await res.json()).message);
-      toast.success("Penerimaan berhasil dicatat");
-      setOpen(false);
-      setNotes("");
-      fetchData();
-    } catch (e: any) {
-      toast.error(e.message || "Gagal mencatat penerimaan");
-    }
-  };
+  }, []);
 
   const handlePrint = (pay: any) => {
-    // Extract related info for printer
     const fundEntry = pay.Journals?.[0]?.Entries?.find((e: any) => e.debit > 0);
     const voucherData = {
         ...pay,
@@ -132,89 +58,82 @@ export default function SalesPayment() {
 
   return (
     <div className="space-y-6">
-      {/* Print Area */}
       <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
         <PrintVoucher data={printData} />
       </div>
 
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold tracking-tight">Penerimaan Pembayaran Piutang</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>Catat Penerimaan</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Catat Penerimaan Pembayaran</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tanggal</Label>
-                  <Input type="date" required value={payDate} onChange={e => setPayDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Masuk ke Akun (Kas/Bank)</Label>
-                  <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={accountId} onChange={e => setAccountId(e.target.value)} required
-                  >
-                    {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label>Pilih Tagihan (Invoice Penjualan)</Label>
-                  <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={invoiceId} onChange={e => handleInvoiceChange(e.target.value)} required
-                  >
-                    {invoices.map(i => <option key={i.id} value={i.id}>{i.invNumber} - {i.contact.name} (Sisa: Rp {i.balance.toLocaleString()})</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Jumlah Diterima</Label>
-                  <Input type="number" required min={1} value={amount} onChange={e => setAmount(Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Catatan Tambahan</Label>
-                  <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Misal: Lunas via transfer Mandiri" />
-                </div>
-              </div>
-              <div className="flex justify-end pt-4">
-                <Button type="submit">Catat Penerimaan</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic uppercase italic">Penerimaan Pelunasan</h1>
+            <p className="text-xs text-zinc-500 font-medium tracking-tight uppercase italic opacity-70 tracking-widest leading-none tracking-widest">Pencatatan pembayaran masuk dari tagihan pelanggan</p>
+        </div>
+        <Button 
+            onClick={() => navigate("/sales/payment/new")}
+            className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-black uppercase italic tracking-widest gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+        >
+            <Plus className="w-4 h-4" /> Catat Pembayaran Piutang
+        </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden text-sm">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>No Referensi</TableHead>
+          <TableHeader className="bg-zinc-50">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
+              <TableHead className="pl-6">Identitas</TableHead>
               <TableHead>Tanggal</TableHead>
-              <TableHead>Pelanggan</TableHead>
+              <TableHead>Nama Pelanggan</TableHead>
               <TableHead className="text-right">Jumlah Diterima</TableHead>
-              <TableHead className="text-center w-24">Aksi</TableHead>
+              <TableHead className="text-center w-24 pr-6">Bukti/Detail</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-20 text-zinc-400 font-medium uppercase tracking-widest italic">Memuat riwayat bayar...</TableCell></TableRow>
             ) : data.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center">Belum ada data</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-24 text-zinc-300 font-black uppercase tracking-[0.2em] italic opacity-40">Belum ada penerimaan piutang</TableCell></TableRow>
             ) : (
               data.map((pay) => (
-                <TableRow key={pay.id}>
-                  <TableCell className="font-medium text-primary cursor-pointer hover:underline">{pay.payNumber}</TableCell>
-                  <TableCell>{new Date(pay.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{pay.contact?.name}</TableCell>
-                  <TableCell className="text-right font-medium">Rp {pay.amount.toLocaleString()}</TableCell>
-                  <TableCell className="text-center">
-                    <Button variant="ghost" size="sm" onClick={() => handlePrint(pay)}>
-                        <Printer className="h-4 w-4 text-zinc-500" />
-                    </Button>
+                <TableRow key={pay.id} className="h-16 group hover:bg-zinc-50 transition-all active:bg-zinc-100 cursor-pointer">
+                  <TableCell className="pl-6" onClick={() => navigate(`/sales/payment/${pay.id}`)}>
+                    <div className="flex flex-col">
+                        <span className="font-black text-[#1e3a5f] uppercase italic italic group-hover:underline">{pay.payNumber}</span>
+                        <span className="text-[9px] font-bold text-zinc-400 tracking-widest">#{pay.id.slice(-6)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs font-bold text-zinc-500 italic" onClick={() => navigate(`/sales/payment/${pay.id}`)}>
+                      <div className="flex items-center gap-1.5 uppercase leading-none">
+                        <Calendar className="w-3 h-3 text-zinc-300" />
+                        {new Date(pay.date).toLocaleDateString()}
+                      </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-zinc-700 uppercase italic" onClick={() => navigate(`/sales/payment/${pay.id}`)}>
+                    <div className="flex items-center gap-2">
+                        <Users className="w-3 h-3 text-zinc-300" />
+                        {pay.contact?.name}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-black text-emerald-600 tabular-nums text-lg italic" onClick={() => navigate(`/sales/payment/${pay.id}`)}>
+                    Rp {pay.amount.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-center pr-6">
+                    <div className="flex items-center justify-center gap-1">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-zinc-300 hover:text-[#1e3a5f] rounded-full"
+                            onClick={(e) => { e.stopPropagation(); handlePrint(pay); }}
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-zinc-300 hover:text-[#1e3a5f] rounded-full"
+                            onClick={() => navigate(`/sales/payment/${pay.id}`)}
+                        >
+                            <ArrowRightSquare className="h-5 w-5" />
+                        </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

@@ -20,6 +20,7 @@ const reportGroups = [
       { name: "Neraca (Balance Sheet)", path: "/accounting/balance-sheet", icon: Wallet },
       { name: "Laba / Rugi (Income Statement)", path: "/accounting/income-statement", icon: TrendingUp },
       { name: "Arus Kas (Cash Flow)", path: "/reports/cash-flow", icon: ArrowRightLeft },
+      { name: "Laporan Pajak", path: "/reports/tax", icon: PieChart },
     ]
   },
   {
@@ -35,7 +36,7 @@ const reportGroups = [
     title: "Penjualan & Piutang",
     description: "Laporan aktivitas penjualan",
     reports: [
-      { name: "Laporan Penjualan", path: "/reports/sales-by-item", icon: BarChart3 },
+      { name: "Laporan Penjualan", path: "/reports/sales", icon: BarChart3 },
       { name: "Aging Piutang (AR)", path: "/reports/ar-aging", icon: PieChart },
     ]
   },
@@ -43,8 +44,15 @@ const reportGroups = [
     title: "Pembelian & Hutang",
     description: "Laporan aktivitas pembelian",
     reports: [
-      { name: "Laporan Pembelian", path: "/reports/purchase-by-item", icon: BarChart3 },
+      { name: "Laporan Pembelian", path: "/reports/purchase", icon: BarChart3 },
       { name: "Aging Hutang (AP)", path: "/reports/ap-aging", icon: PieChart },
+    ]
+  },
+  {
+    title: "Inventory",
+    description: "Analisis stok barang",
+    reports: [
+      { name: "Kartu Stok", path: "/reports/stock-card", icon: FileText },
     ]
   }
 ];

@@ -6,9 +6,21 @@ import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Printer, FileDown, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { exportToPDF } from "../../lib/export-utils";
+
+type Account = { id: string, code: string, name: string, balance: number };
+type BalanceData = {
+  assets: Account[],
+  totalAssets: number,
+  liabilities: Account[],
+  totalLiabilities: number,
+  equity: Account[],
+  totalEquity: number,
+  currentEarnings: number
+};
 
 export default function BalanceSheet() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -18,9 +30,11 @@ export default function BalanceSheet() {
       const res = await fetch(`/api/accounting/balance-sheet?date=${date}`, {
         headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
       });
-      if(res.ok) setData(await res.json());
+      if(!res.ok) throw new Error("Gagal mengambil data");
+      setData(await res.json());
     } catch (e) {
       toast.error("Gagal mengambil data Neraca");
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -30,9 +44,19 @@ export default function BalanceSheet() {
     fetchData();
   }, []);
 
+  const handleExport = () => {
+     if(!data) return;
+     const body = [
+         ["Total Aset", data.totalAssets.toLocaleString()],
+         ["Total Kewajiban", data.totalLiabilities.toLocaleString()],
+         ["Total Ekuitas", data.totalEquity.toLocaleString()]
+     ];
+     exportToPDF(["Keterangan", "Jumlah"], body, `Neraca Per ${date}`, "Balance_Sheet");
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-[#f3f4f6]">
-      {/* HEADER SECTION (Accurate Style) */}
+      {/* HEADER SECTION */}
       <div className="bg-[#1e3a5f] text-white px-4 py-2 flex items-center justify-between shadow-md">
         <div className="flex flex-col">
             <div className="flex items-center text-[10px] opacity-70">
@@ -46,7 +70,7 @@ export default function BalanceSheet() {
             <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs" onClick={() => window.print()}>
                <Printer className="w-3.5 h-3.5 mr-1.5" /> PRINT
             </Button>
-            <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs">
+            <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs" onClick={handleExport}>
                <FileDown className="w-3.5 h-3.5 mr-1.5" /> EXPORT
             </Button>
         </div>

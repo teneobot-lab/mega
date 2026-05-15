@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Plus, Trash, Printer } from "lucide-react";
+import { Plus, Printer, FileText, Calendar, Wallet } from "lucide-react";
 import { PrintInvoice } from "../../components/PrintInvoice";
 
 type Invoice = {
@@ -25,22 +23,9 @@ type Invoice = {
 export default function PurchaseInvoice() {
   const [data, setData] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
   const [printData, setPrintData] = useState<Invoice | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
-  
-  // Data Master untuk Form
-  const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
-  const [items, setItems] = useState<{id: string, name: string, buyPrice: number}[]>([]);
-  const [pos, setPos] = useState<any[]>([]);
-
-  // State Form Baru
-  const [invDate, setInvDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState(new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]);
-  const [supplierId, setSupplierId] = useState("");
-  const [poId, setPoId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<{itemId: string, qty: number, price: number}[]>([]);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -55,83 +40,9 @@ export default function PurchaseInvoice() {
     }
   };
 
-  const loadMasters = async () => {
-    try {
-      const [supRes, itmRes, poRes] = await Promise.all([
-        fetch("/api/master/contacts?type=SUPPLIER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-        fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-        fetch("/api/purchasing/orders", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
-      ]);
-      const [sup, itm, pd] = await Promise.all([supRes.json(), itmRes.json(), poRes.json()]);
-      setSuppliers(sup);
-      setItems(itm);
-      // Hanya ambil PO yg APPROVED
-      setPos(pd.filter((p: any) => p.status === "APPROVED"));
-      if(sup.length > 0) setSupplierId(sup[0].id);
-    } catch (e) {}
-  };
-
   useEffect(() => {
     fetchData();
-    loadMasters();
   }, []);
-
-  const handleSelectPO = (id: string) => {
-    setPoId(id);
-    if (!id) return;
-    const selectedPo = pos.find(p => p.id === id);
-    if (selectedPo) {
-      setSupplierId(selectedPo.supplierId);
-      // Auto fill lines
-      setLines(selectedPo.Lines.map((l: any) => ({
-        itemId: l.itemId,
-        qty: l.qty,
-        price: l.price
-      })));
-    }
-  };
-
-  const handleAddLine = () => {
-    if(items.length === 0) return toast.error("Tidak ada data barang!");
-    setLines([...lines, { itemId: items[0].id, qty: 1, price: items[0].buyPrice }]);
-  };
-
-  const handleRemoveLine = (index: number) => {
-    const newLines = [...lines];
-    newLines.splice(index, 1);
-    setLines(newLines);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if(lines.length === 0) return toast.error("Faktur harus memiliki minimal 1 barang");
-    try {
-      const res = await fetch("/api/purchasing/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({
-          date: invDate,
-          dueDate: dueDate,
-          supplierId,
-          poId,
-          contactId: supplierId,
-          notes,
-          lines
-        })
-      });
-      if (!res.ok) throw new Error((await res.json()).message);
-      toast.success("Faktur berhasil dibuat");
-      setOpen(false);
-      setLines([]);
-      setPoId("");
-      fetchData();
-    } catch (e: any) {
-      toast.error(e.message || "Gagal membuat Faktur");
-    }
-  };
 
   const handlePrint = (inv: Invoice) => {
     setPrintData(inv);
@@ -150,163 +61,78 @@ export default function PurchaseInvoice() {
       </div>
 
       <div className="flex items-center justify-between print:hidden">
-        <h1 className="text-2xl font-bold tracking-tight">Faktur Pembelian (Purchase Invoice)</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>Buat Faktur Baru</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Buat Faktur Pembelian</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                  <Label>Tarik dari PO (Opsional)</Label>
-                  <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={poId} onChange={e => handleSelectPO(e.target.value)}
-                  >
-                    <option value="">Pilih PO...</option>
-                    {pos.map(p => <option key={p.id} value={p.id}>{p.poNumber}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Supplier</Label>
-                  <select 
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
-                    value={supplierId} 
-                    onChange={e => setSupplierId(e.target.value)}
-                    disabled={!!poId}
-                  >
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Tanggal Faktur</Label>
-                  <Input type="date" required value={invDate} onChange={e => setInvDate(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Jatuh Tempo</Label>
-                  <Input type="date" required value={dueDate} onChange={e => setDueDate(e.target.value)} />
-                </div>
-              </div>
-              
-              <div className="border bg-zinc-50 rounded-lg p-4 space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                   <h3 className="font-semibold text-sm">Rincian Barang</h3>
-                   {!poId && <Button type="button" variant="outline" size="sm" onClick={handleAddLine}><Plus className="h-4 w-4 mr-2"/> Tambah</Button>}
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Barang</TableHead>
-                      <TableHead className="w-24">QTY</TableHead>
-                      <TableHead className="w-48">Harga Unit</TableHead>
-                      <TableHead className="w-48 text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lines.map((reqLine, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          <select 
-                            className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm disabled:opacity-50"
-                            value={reqLine.itemId}
-                            disabled={!!poId}
-                            onChange={(e) => {
-                              const newLines = [...lines];
-                              newLines[idx].itemId = e.target.value;
-                              setLines(newLines);
-                            }}
-                          >
-                            {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                          </select>
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" min={1} value={reqLine.qty} disabled={!!poId} 
-                            onChange={(e) => {
-                              const newLines = [...lines];
-                              newLines[idx].qty = Number(e.target.value);
-                              setLines(newLines);
-                            }} />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" min={0} value={reqLine.price} disabled={!!poId}
-                             onChange={(e) => {
-                              const newLines = [...lines];
-                              newLines[idx].price = Number(e.target.value);
-                              setLines(newLines);
-                            }} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          Rp {(reqLine.qty * reqLine.price).toLocaleString()}
-                        </TableCell>
-                        {!poId && (
-                           <TableCell>
-                             <Button type="button" variant="ghost" size="icon" className="text-red-500" onClick={() => handleRemoveLine(idx)}>
-                               <Trash className="h-4 w-4" />
-                             </Button>
-                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                
-                <div className="flex justify-end text-lg font-bold">
-                   TOTAL: Rp {lines.reduce((acc, l) => acc + (l.qty * l.price), 0).toLocaleString()}
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button type="submit">Simpan & Jurnal Otomatis</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic italic">Faktur Pembelian</h1>
+            <p className="text-xs text-zinc-500 font-medium tracking-tight">Manajemen kewajiban vendor dan stok masuk secara akurat</p>
+        </div>
+        <Button 
+            onClick={() => navigate("/purchasing/invoice/new")}
+            className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-bold gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+        >
+            <Plus className="w-4 h-4" /> Faktur Baru
+        </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="grid grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex items-center gap-4">
+              <div className="p-3 bg-red-50 rounded-xl text-red-600"><Wallet className="w-6 h-6" /></div>
+              <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Total Hutang</span>
+                  <span className="text-xl font-black text-[#1e3a5f] tabular-nums">Rp {data.reduce((s,i) => s + (i.status === 'UNPAID' ? i.balance : 0), 0).toLocaleString()}</span>
+              </div>
+          </div>
+          {/* Add more stats if needed */}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Status</TableHead>
+          <TableHeader className="bg-zinc-50">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
+              <TableHead className="pl-6">Status</TableHead>
               <TableHead>Nomor Faktur</TableHead>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Jatuh Tempo</TableHead>
+              <TableHead>Tanggal & Tempo</TableHead>
               <TableHead>Supplier</TableHead>
+              <TableHead className="text-right">Total Tagihan</TableHead>
               <TableHead className="text-right">Sisa Tagihan</TableHead>
-              <TableHead className="text-center w-24">Aksi</TableHead>
+              <TableHead className="text-center w-24 pr-6">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-20 text-zinc-400 font-bold uppercase tracking-widest italic">Loading data...</TableCell></TableRow>
             ) : data.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center">Belum ada data Faktur</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-24 text-zinc-300 font-black uppercase tracking-[0.2em]">Belum ada data Faktur</TableCell></TableRow>
             ) : (
               data.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-md text-xs font-semibold ${inv.status === 'UNPAID' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                <TableRow key={inv.id} className="h-16 group hover:bg-zinc-50 transition-all active:bg-zinc-100 cursor-pointer">
+                  <TableCell className="pl-6" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${inv.status === 'UNPAID' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
                       {inv.status}
                     </span>
                   </TableCell>
-                  <TableCell className="font-medium text-blue-600 cursor-pointer">{inv.invNumber}</TableCell>
-                  <TableCell>{new Date(inv.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{new Date(inv.dueDate).toLocaleDateString()}</TableCell>
-                  <TableCell>{inv.contact?.name}</TableCell>
-                  <TableCell className="text-right font-medium">Rp {inv.balance.toLocaleString()}</TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="font-black text-[#1e3a5f]" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>
+                    <div className="flex flex-col">
+                        <span>{inv.invNumber}</span>
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#{inv.id.slice(-6)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>
+                      <div className="flex flex-col text-xs font-bold text-zinc-600">
+                        <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3 text-zinc-400" /> {new Date(inv.date).toLocaleDateString()}</div>
+                        <div className="flex items-center gap-1.5 text-red-500"><Calendar className="w-3 h-3 text-red-300" /> {new Date(inv.dueDate).toLocaleDateString()}</div>
+                      </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-zinc-700 uppercase italic tracking-tight" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>{inv.contact?.name}</TableCell>
+                  <TableCell className="text-right font-black text-zinc-400 tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.total.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.balance.toLocaleString()}</TableCell>
+                  <TableCell className="text-center pr-6">
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-8 w-8 p-0"
-                      onClick={() => handlePrint(inv)}
-                      title="Cetak Faktur"
+                      className="h-8 w-8 p-0 text-zinc-400 hover:text-[#1e3a5f] hover:bg-zinc-100 rounded-full"
+                      onClick={(e) => { e.stopPropagation(); handlePrint(inv); }}
                     >
-                      <Printer className="h-4 w-4 text-zinc-500 hover:text-red-700" />
+                      <Printer className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>

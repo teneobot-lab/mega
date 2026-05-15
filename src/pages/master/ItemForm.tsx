@@ -85,32 +85,32 @@ export default function ItemForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      <div className="space-y-6">
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm grid grid-cols-4 gap-6">
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Kode Barang <span className="text-red-500">*</span></Label>
+      <div className="p-2 space-y-2">
+        <div className="ac-form-header grid grid-cols-4 gap-4">
+          <div className="ac-field-group">
+            <Label className="ac-label">Kode Barang <span className="text-red-500">*</span></Label>
             <Input 
-              className="h-8 text-xs border-zinc-300 font-bold" 
+              className="ac-input" 
               placeholder="ITM-001"
               value={formData.code}
               onChange={e => { setFormData({...formData, code: e.target.value}); setIsDirty(true); }}
             />
           </div>
 
-          <div className="col-span-2 space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Nama Barang <span className="text-red-500">*</span></Label>
+          <div className="ac-field-group col-span-2">
+            <Label className="ac-label">Nama Barang <span className="text-red-500">*</span></Label>
             <Input 
-              className="h-8 text-xs border-zinc-300" 
-              placeholder="Masukkan nama barang lengkap..."
+              className="ac-input" 
+              placeholder="Masukkan nama barang..."
               value={formData.name}
               onChange={e => { setFormData({...formData, name: e.target.value}); setIsDirty(true); }}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Satuan Dasar <span className="text-red-500">*</span></Label>
+          <div className="ac-field-group">
+            <Label className="ac-label">Satuan Dasar <span className="text-red-500">*</span></Label>
             <select 
-                className="w-full h-8 bg-zinc-50 border border-zinc-300 rounded px-3 text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                className="ac-input"
                 value={formData.baseUomId}
                 onChange={e => { setFormData({...formData, baseUomId: e.target.value}); setIsDirty(true); }}
             >
@@ -118,45 +118,45 @@ export default function ItemForm() {
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Harga Beli Terakhir</Label>
+          <div className="ac-field-group">
+            <Label className="ac-label">Harga Beli Terakhir</Label>
             <Input 
               type="number"
-              className="h-8 text-xs border-zinc-300 text-right tabular-nums" 
+              className="ac-input text-right" 
               value={formData.buyPrice}
               onChange={e => { setFormData({...formData, buyPrice: Number(e.target.value)}); setIsDirty(true); }}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Harga Jual Standar</Label>
+          <div className="ac-field-group">
+            <Label className="ac-label">Harga Jual Standar</Label>
             <Input 
               type="number"
-              className="h-8 text-xs border-zinc-300 text-right tabular-nums" 
+              className="ac-input text-right" 
               value={formData.sellPrice}
               onChange={e => { setFormData({...formData, sellPrice: Number(e.target.value)}); setIsDirty(true); }}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Stok Minimum</Label>
+          <div className="ac-field-group">
+            <Label className="ac-label">Stok Minimum</Label>
             <Input 
               type="number"
-              className="h-8 text-xs border-zinc-300 text-right tabular-nums" 
+              className="ac-input text-right" 
               value={formData.minStock}
               onChange={e => { setFormData({...formData, minStock: Number(e.target.value)}); setIsDirty(true); }}
             />
           </div>
-        </div>
 
-        <div className="space-y-2">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Keterangan Barang</Label>
-            <textarea 
-                className="w-full h-24 bg-white border border-zinc-200 rounded-xl p-4 text-xs focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all italic"
-                placeholder="..."
-                value={formData.notes}
-                onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+          <div className="ac-field-group col-span-4">
+            <Label className="ac-label">Keterangan</Label>
+            <Input 
+              className="ac-input"
+              placeholder="Catatan..."
+              value={formData.notes}
+              onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
             />
+          </div>
         </div>
       </div>
     </FullscreenFormLayout>

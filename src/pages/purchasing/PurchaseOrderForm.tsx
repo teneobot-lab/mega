@@ -5,7 +5,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
 import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
-import { EditableTable } from "../../components/fullscreen-form/EditableTable";
+import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
+import { ShoppingBag, Calendar, Users, FileText, BadgeInfo } from "lucide-react";
 
 export default function PurchaseOrderForm() {
   const navigate = useNavigate();
@@ -21,9 +22,9 @@ export default function PurchaseOrderForm() {
     status: "DRAFT"
   });
 
-  const [lines, setLines] = useState<any[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [items, setItems] = useState<any[]>([]);
+  const [availableItems, setAvailableItems] = useState<any[]>([]);
 
   useEffect(() => {
     // Load dependencies
@@ -36,7 +37,7 @@ export default function PurchaseOrderForm() {
         const sups = await supRes.json();
         const itms = await itmRes.json();
         setSuppliers(sups);
-        setItems(itms);
+        setAvailableItems(itms);
 
         if (isEdit) {
           const res = await fetch(`/api/purchasing/orders/${id}`, {
@@ -49,9 +50,12 @@ export default function PurchaseOrderForm() {
             notes: data.notes || "",
             status: data.status
           });
-          setLines(data.Lines.map((l: any) => ({
+          setCartItems(data.Lines.map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
+            name: l.item?.name || 'Item',
+            code: l.item?.code || '',
+            uom: l.item?.baseUom?.name || 'Unit',
             qty: l.qty,
             price: l.price,
             total: l.qty * l.price
@@ -66,21 +70,30 @@ export default function PurchaseOrderForm() {
 
   const handleSave = async () => {
     if (!formData.supplierId) return toast.error("Supplier wajib diisi");
-    if (lines.length === 0) return toast.error("Minimal 1 barang pesanan");
+    if (cartItems.length === 0) return toast.error("Minimal 1 barang pesanan");
 
     setIsSaving(true);
     try {
+      const payload = {
+          ...formData,
+          lines: cartItems.map(it => ({
+              itemId: it.itemId,
+              qty: it.qty,
+              price: it.price
+          }))
+      };
+
       const res = await fetch("/api/purchasing/orders" + (isEdit ? `/${id}` : ""), {
         method: isEdit ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${localStorage.getItem("token")}`
         },
-        body: JSON.stringify({ ...formData, lines })
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        toast.success(`Pesanan Pembelian berhasil ${isEdit ? 'diubah' : 'dibuat'}`);
+        toast.success(`Pesanan Pembelian berhasil disimpan`);
         setIsDirty(false);
         navigate("/purchasing/po");
       } else {
@@ -93,36 +106,6 @@ export default function PurchaseOrderForm() {
     }
   };
 
-  const tableColumns = [
-    {
-      key: "itemId",
-      label: "Barang",
-      type: "select" as const,
-      options: items.map(i => ({ value: i.id, label: i.name }))
-    },
-    {
-      key: "qty",
-      label: "Quantity",
-      type: "number" as const,
-      width: "120px"
-    },
-    {
-      key: "price",
-      label: "Harga Satuan",
-      type: "number" as const,
-      width: "180px"
-    },
-    {
-      key: "total",
-      label: "Total",
-      type: "number" as const,
-      width: "180px",
-      readOnly: true
-    }
-  ];
-
-  const totalValue = lines.reduce((acc, curr) => acc + (curr.total || 0), 0);
-
   return (
     <FullscreenFormLayout
       title={isEdit ? `Edit Pesanan #${id}` : "Pesanan Pembelian Baru"}
@@ -133,66 +116,55 @@ export default function PurchaseOrderForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      <div className="space-y-6">
-        <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm grid grid-cols-4 gap-6">
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Supplier <span className="text-red-500">*</span></Label>
-            <select 
-                className="w-full h-8 bg-zinc-50 border border-zinc-300 rounded px-3 text-xs font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                value={formData.supplierId}
-                onChange={e => { setFormData({...formData, supplierId: e.target.value}); setIsDirty(true); }}
-            >
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Tanggal Pesanan <span className="text-red-500">*</span></Label>
-            <Input 
-              type="date"
-              className="h-8 text-xs border-zinc-300" 
-              value={formData.date}
-              onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
-            />
-          </div>
-
-          <div className="col-span-2 space-y-1.5">
-            <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Keterangan / Catatan</Label>
-            <Input 
-              className="h-8 text-xs border-zinc-300" 
-              placeholder="..."
-              value={formData.notes}
-              onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <div className="p-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
-             <h3 className="text-xs font-black uppercase tracking-widest text-[#1e3a5f]">Daftar Barang & Jasa</h3>
-          </div>
-          <div className="flex-1 overflow-auto">
-            <EditableTable 
-              columns={tableColumns}
-              data={lines}
-              onChange={(newLines) => {
-                setLines(newLines);
-                setIsDirty(true);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-10">
-          <div></div>
-          <div className="bg-[#1e3a5f] p-8 rounded-2xl text-white flex flex-col gap-4 shadow-xl">
-            <div className="flex justify-between items-center border-b border-white/10 pb-4">
-              <span className="text-xs font-bold uppercase tracking-widest opacity-60">Total Pesanan</span>
-              <span className="text-3xl font-black italic tracking-tighter">Rp {totalValue.toLocaleString()}</span>
+      <div className="p-2 space-y-2">
+        <div className="ac-form-header grid grid-cols-4 gap-4">
+            <div className="ac-field-group">
+                <Label className="ac-label">Supplier <span className="text-red-500">*</span></Label>
+                <select 
+                    className="ac-input"
+                    value={formData.supplierId}
+                    onChange={e => { setFormData({...formData, supplierId: e.target.value}); setIsDirty(true); }}
+                >
+                    <option value="">Pilih Supplier...</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} - {s.category || 'Vendor'}</option>)}
+                </select>
             </div>
-          </div>
+
+            <div className="ac-field-group">
+                <Label className="ac-label">Tanggal Transaksi</Label>
+                <Input 
+                  type="date"
+                  className="ac-input" 
+                  value={formData.date}
+                  onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                />
+            </div>
+
+            <div className="ac-field-group col-span-2">
+                <Label className="ac-label">Keterangan</Label>
+                <Input 
+                  className="ac-input"
+                  placeholder="Catatan..."
+                  value={formData.notes}
+                  onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                />
+            </div>
         </div>
+
+        <div className="ac-table-container">
+            <TransactionCart 
+                items={cartItems}
+                availableItems={availableItems}
+                showPrice={true}
+                onChange={(items) => {
+                    setCartItems(items);
+                    setIsDirty(true);
+                }}
+            />
+        </div>
+      </div>
       </div>
     </FullscreenFormLayout>
   );
 }
+

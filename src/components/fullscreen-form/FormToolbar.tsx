@@ -33,83 +33,76 @@ export const FormToolbar: React.FC<FormToolbarProps> = ({
 }) => {
   return (
     <TooltipProvider>
-      <div className="h-10 bg-[#1e3a5f] text-white flex items-center justify-between px-3 sticky top-0 z-[100] shadow-md select-none">
-        <div className="flex items-center gap-3">
+      <div className="ac-toolbar overflow-hidden flex-shrink-0">
+        <div className="flex items-center gap-2 max-w-[40%] overflow-hidden">
           <button 
             onClick={onCancel}
-            className="hover:bg-white/10 p-1 rounded transition-colors"
+            className="ac-toolbar-btn ac-btn-cancel !border-none !p-1"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-[14px] h-[14px]" />
           </button>
-          <div className="flex flex-col">
-            <span className="text-[9px] uppercase font-bold tracking-widest text-blue-300 leading-none">
-              {module}
-            </span>
-            <span className="text-xs font-bold leading-none mt-1">
-              {title}
-            </span>
+          <div className="flex items-center whitespace-nowrap overflow-hidden text-[11px]">
+            <span className="text-[#BDC3C7]">{module}</span>
+            <span className="text-[#BDC3C7] mx-1">›</span>
+            <span className="text-white font-bold truncate">{title}</span>
           </div>
         </div>
+
+        <div className="flex-1" />
 
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 text-white hover:bg-white/10 gap-1.5 px-3"
+              <button 
+                className="ac-toolbar-btn ac-btn-save"
                 onClick={onSave}
                 disabled={isSaving}
               >
-                <Save className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold">Simpan</span>
-              </Button>
+                <Save className="w-[14px] h-[14px]" />
+                <span>Simpan</span>
+              </button>
             </TooltipTrigger>
             <TooltipContent>Ctrl+S</TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 text-white hover:bg-white/10 gap-1.5 px-3"
+              <button 
+                className="ac-toolbar-btn ac-btn-save-new"
                 onClick={onSaveAndNew}
                 disabled={isSaving}
               >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold">Simpan & Baru</span>
-              </Button>
+                <PlusCircle className="w-[14px] h-[14px]" />
+                <span>Simpan & Baru</span>
+              </button>
             </TooltipTrigger>
             <TooltipContent>Ctrl+N</TooltipContent>
           </Tooltip>
 
-          <div className="w-[1px] h-4 bg-white/20 mx-1" />
+          <div className="ac-toolbar-separator" />
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 text-white hover:bg-white/10"
+              <button 
+                className="ac-toolbar-btn ac-btn-print"
                 onClick={onPrint}
               >
-                <Printer className="w-3.5 h-3.5" />
-              </Button>
+                <Printer className="w-[14px] h-[14px]" />
+                <span>Cetak</span>
+              </button>
             </TooltipTrigger>
             <TooltipContent>Cetak (Ctrl+P)</TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 text-white hover:bg-white/10"
+              <button 
+                className="ac-toolbar-btn ac-btn-cancel"
                 onClick={onCopy}
               >
-                <Copy className="w-3.5 h-3.5" />
-              </Button>
+                <Copy className="w-[14px] h-[14px]" />
+                <span>Salin</span>
+              </button>
             </TooltipTrigger>
             <TooltipContent>Duplikat</TooltipContent>
           </Tooltip>
@@ -117,32 +110,30 @@ export const FormToolbar: React.FC<FormToolbarProps> = ({
           {isEdit && canDelete && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 text-red-300 hover:bg-red-500 hover:text-white"
+                <button 
+                  className="ac-toolbar-btn ac-btn-delete"
                   onClick={onDelete}
                   disabled={isSaving}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                  <Trash2 className="w-[14px] h-[14px]" />
+                  <span>Hapus</span>
+                </button>
               </TooltipTrigger>
               <TooltipContent>Hapus (Del)</TooltipContent>
             </Tooltip>
           )}
 
-          <div className="w-[1px] h-4 bg-white/20 mx-1" />
+          <div className="ac-toolbar-separator" />
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-8 text-white hover:bg-white/10"
+              <button 
+                className="ac-toolbar-btn ac-btn-cancel"
                 onClick={onCancel}
               >
-                <X className="w-3.5 h-3.5" />
-              </Button>
+                <X className="w-[14px] h-[14px]" />
+                <span>Tutup</span>
+              </button>
             </TooltipTrigger>
             <TooltipContent>Batal (Esc)</TooltipContent>
           </Tooltip>
@@ -150,4 +141,5 @@ export const FormToolbar: React.FC<FormToolbarProps> = ({
       </div>
     </TooltipProvider>
   );
-};
+}
+;

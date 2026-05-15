@@ -1,26 +1,14 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Search, Plus, Trash } from "lucide-react";
+import { RotateCcw, Plus, Calendar, Box, Warehouse, ArrowRightSquare } from "lucide-react";
 
 export default function PurchaseReturn() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [contactId, setContactId] = useState("");
-  const [warehouseId, setWarehouseId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<any[]>([{ itemId: "", qty: 0, price: 0 }]);
-
-  const [suppliers, setSuppliers] = useState<any[]>([]);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
-  const [items, setItems] = useState<any[]>([]);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -35,206 +23,81 @@ export default function PurchaseReturn() {
     }
   };
 
-  const loadDependencies = async () => {
-    try {
-      const [wRes, supRes, itemRes] = await Promise.all([
-         fetch("/api/master/warehouses", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}}),
-         fetch("/api/master/contacts", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}}),
-         fetch("/api/master/items", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}})
-      ]);
-      const wData = await wRes.json();
-      const sData = await supRes.json();
-      const iData = await itemRes.json();
-      
-      setWarehouses(wData);
-      setSuppliers(sData.filter((c: any) => c.type === 'SUPPLIER'));
-      setItems(iData);
-      if(wData.length > 0) setWarehouseId(wData[0].id);
-    } catch(e) {}
-  };
-
   useEffect(() => {
     fetchData();
-    loadDependencies();
   }, []);
-
-  const handleAddLine = () => {
-     setLines([...lines, { itemId: "", qty: 0, price: 0 }]);
-  };
-
-  const handleRemoveLine = (idx: number) => {
-     const newLines = [...lines];
-     newLines.splice(idx, 1);
-     setLines(newLines);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if(!contactId) return toast.error("Pilih Supplier terlebih dahulu");
-    if(!warehouseId) return toast.error("Pilih gudang asal");
-    if(lines.some(l => !l.itemId || l.qty <= 0 || l.price <= 0)) return toast.error("Pastikan semua baris item valid");
-
-    try {
-      const res = await fetch("/api/purchasing/returns", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ date, contactId, warehouseId, notes, lines })
-      });
-      if(!res.ok) throw new Error((await res.json()).message);
-      toast.success("Retur pembelian berhasil dicatat");
-      setOpen(false);
-      setContactId("");
-      setNotes("");
-      setLines([{ itemId: "", qty: 0, price: 0 }]);
-      fetchData();
-    } catch(e: any) {
-      toast.error(e.message || "Gagal mencatat retur");
-    }
-  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-            <h1 className="text-2xl font-bold tracking-tight">Retur Pembelian (Purchase Return)</h1>
-            <p className="text-zinc-500">Mengembalikan barang ke Supplier dan mendapatkan potongan hutang.</p>
+        <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic uppercase italic">Retur Pembelian</h1>
+            <p className="text-xs text-zinc-500 font-medium tracking-tight uppercase italic opacity-70 tracking-widest leading-none">Pengembalian barang dan pemotongan kewajiban vendor</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>Input Retur Baru</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Buat Retur Pembelian</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Pilih Supplier</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={contactId} onChange={e => setContactId(e.target.value)} required>
-                        <option value="">-- Pilih Supplier --</option>
-                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Kembalikan Dari Gudang</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={warehouseId} onChange={e => setWarehouseId(e.target.value)} required>
-                        {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                    </select>
-                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Tanggal Retur</Label>
-                    <Input type="date" required value={date} onChange={e => setDate(e.target.value)} />
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Catatan / Alasan Retur</Label>
-                    <Input value={notes} onChange={e => setNotes(e.target.value)} />
-                 </div>
-              </div>
-
-              <div className="border rounded-lg p-4 bg-zinc-50">
-                  <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-bold">Item yang Diretur</h4>
-                      <Button type="button" variant="outline" size="sm" onClick={handleAddLine}><Plus className="h-4 w-4 mr-2"/> Tambah Item</Button>
-                  </div>
-                  <Table>
-                      <TableHeader>
-                          <TableRow>
-                              <TableHead>Pilih Barang</TableHead>
-                              <TableHead className="w-32 text-right">Qty</TableHead>
-                              <TableHead className="w-48 text-right">Harga Retur</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                              <TableHead></TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {lines.map((l, idx) => (
-                              <TableRow key={idx}>
-                                  <TableCell>
-                                      <select className="flex h-9 w-full rounded-md border border-input bg-white px-3 py-1 text-sm" value={l.itemId} onChange={e => {
-                                          const newLines = [...lines];
-                                          newLines[idx].itemId = e.target.value;
-                                          const itm = items.find(i => i.id === e.target.value);
-                                          if (itm) newLines[idx].price = itm.purchasePrice;
-                                          setLines(newLines);
-                                      }} required>
-                                          <option value="">Pilih...</option>
-                                          {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                                      </select>
-                                  </TableCell>
-                                  <TableCell>
-                                      <Input type="number" min={1} value={l.qty} onChange={(e) => {
-                                          const newLines = [...lines];
-                                          newLines[idx].qty = Number(e.target.value);
-                                          setLines(newLines);
-                                      }} required />
-                                  </TableCell>
-                                  <TableCell>
-                                      <Input type="number" min={1} value={l.price} onChange={(e) => {
-                                          const newLines = [...lines];
-                                          newLines[idx].price = Number(e.target.value);
-                                          setLines(newLines);
-                                      }} required />
-                                  </TableCell>
-                                  <TableCell className="text-right font-semibold">
-                                      Rp {(l.qty * l.price).toLocaleString()}
-                                  </TableCell>
-                                  <TableCell>
-                                      {lines.length > 1 && (
-                                         <Button type="button" variant="ghost" size="icon" className="text-red-500" onClick={() => handleRemoveLine(idx)}><Trash className="h-4 w-4" /></Button>
-                                      )}
-                                  </TableCell>
-                              </TableRow>
-                          ))}
-                      </TableBody>
-                  </Table>
-                  <div className="flex justify-end pt-4 font-bold text-lg">
-                      Total Retur: Rp {lines.reduce((s, l) => s + (l.qty * l.price), 0).toLocaleString()}
-                  </div>
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button type="submit">Catat Retur Pembelian</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button 
+            onClick={() => navigate("/purchasing/return/new")}
+            className="bg-red-600 hover:bg-red-700 text-white font-black uppercase italic tracking-widest gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+        >
+            <RotateCcw className="w-4 h-4" /> Buat Retur
+        </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Kode Retur</TableHead>
+          <TableHeader className="bg-zinc-50">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
+              <TableHead className="pl-6">Status</TableHead>
+              <TableHead>Nomor Retur</TableHead>
               <TableHead>Tanggal</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Total Item</TableHead>
-              <TableHead className="text-right">Total Nilai</TableHead>
-              <TableHead>Keterangan</TableHead>
+              <TableHead>Nama Supplier</TableHead>
+              <TableHead className="text-right">Total Nilai Retur</TableHead>
+              <TableHead className="text-center w-24 pr-6">Detail</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-               <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-20 text-zinc-400 font-bold uppercase tracking-widest italic">Memuat data retur...</TableCell></TableRow>
             ) : data.length === 0 ? (
-               <TableRow><TableCell colSpan={6} className="text-center">Belum ada retur pembelian</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-24 text-zinc-300 font-black uppercase tracking-[0.2em] italic opacity-40">Belum ada retur terdata</TableCell></TableRow>
             ) : (
-                data.map(d => (
-                    <TableRow key={d.id}>
-                        <TableCell className="font-medium text-red-600">{d.invNumber}</TableCell>
-                        <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{d.contact?.name}</TableCell>
-                        <TableCell>{d.Lines.length} baris</TableCell>
-                        <TableCell className="text-right font-bold">Rp {d.total.toLocaleString()}</TableCell>
-                        <TableCell>{d.notes || '-'}</TableCell>
-                    </TableRow>
-                ))
+              data.map((d) => (
+                <TableRow 
+                    key={d.id} 
+                    className="h-16 group hover:bg-red-50/30 transition-all active:bg-red-50 cursor-pointer"
+                    onClick={() => navigate(`/purchasing/return/${d.id}`)}
+                >
+                  <TableCell className="pl-6">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">
+                      RETURNED
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-black text-[#1e3a5f]">
+                    <div className="flex flex-col">
+                        <span>{d.invNumber}</span>
+                        <span className="text-[9px] font-bold text-zinc-400 tracking-widest">#{d.id.slice(-6)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs font-bold text-zinc-500 italic">
+                      <div className="flex items-center gap-1.5 uppercase">
+                        <Calendar className="w-3 h-3 text-zinc-300" />
+                        {new Date(d.date).toLocaleDateString()}
+                      </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-zinc-700 uppercase italic">{d.contact?.name}</TableCell>
+                  <TableCell className="text-right font-black text-red-600 tabular-nums text-lg italic">
+                    Rp {d.total.toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-center pr-6">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-zinc-300 group-hover:text-red-500 rounded-full"
+                    >
+                        <ArrowRightSquare className="h-5 w-5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

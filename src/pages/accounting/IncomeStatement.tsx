@@ -5,9 +5,20 @@ import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Printer, FileDown, ChevronRight } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { exportToPDF } from "../../lib/export-utils";
+
+type Account = { id: string, code: string, name: string, balance: number };
+type IncomeData = {
+  revenues: Account[],
+  totalRevenues: number,
+  expenses: Account[],
+  totalExpenses: number,
+  netIncome: number
+};
 
 export default function IncomeStatement() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<IncomeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -18,9 +29,11 @@ export default function IncomeStatement() {
       const res = await fetch(`/api/accounting/income-statement?startDate=${startDate}&endDate=${endDate}`, {
         headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
       });
-      if(res.ok) setData(await res.json());
+      if(!res.ok) throw new Error("Gagal mengambil data");
+      setData(await res.json());
     } catch (e) {
       toast.error("Gagal mengambil data Laba Rugi");
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -29,6 +42,16 @@ export default function IncomeStatement() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleExport = () => {
+     if(!data) return;
+     const body = [
+         ["Total Pendapatan", data.totalRevenues.toLocaleString()],
+         ["Total Beban", data.totalExpenses.toLocaleString()],
+         ["Laba Bersih", data.netIncome.toLocaleString()]
+     ];
+     exportToPDF(["Keterangan", "Jumlah"], body, `Laba Rugi ${startDate} s/d ${endDate}`, "Income_Statement");
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#f3f4f6]">
@@ -46,7 +69,7 @@ export default function IncomeStatement() {
             <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs" onClick={() => window.print()}>
                <Printer className="w-3.5 h-3.5 mr-1.5" /> PRINT
             </Button>
-            <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs">
+            <Button size="sm" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 h-8 text-xs" onClick={handleExport}>
                <FileDown className="w-3.5 h-3.5 mr-1.5" /> EXPORT
             </Button>
         </div>

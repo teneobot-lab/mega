@@ -1,24 +1,14 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
+import { PackageOpen, Plus, Calendar, FileText, ArrowRightSquare, Box, Warehouse } from "lucide-react";
 
 export default function PurchaseReceipt() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [poId, setPoId] = useState("");
-  const [warehouseToId, setWarehouseToId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<any[]>([]);
-
-  const [pos, setPos] = useState<any[]>([]);
-  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
@@ -33,171 +23,93 @@ export default function PurchaseReceipt() {
     }
   };
 
-  const loadDependencies = async () => {
-    try {
-      const [wRes, poRes] = await Promise.all([
-         fetch("/api/master/warehouses", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}}),
-         fetch("/api/purchasing/orders", { headers: {"Authorization": `Bearer ${localStorage.getItem("token")}`}})
-      ]);
-      const wData = await wRes.json();
-      const pData = await poRes.json();
-      setWarehouses(wData);
-      // Filter ONLY APPROVED POs that haven't been received fully
-      const validPos = pData.filter((p: any) => p.status === "APPROVED");
-      setPos(validPos);
-      if(wData.length > 0) setWarehouseToId(wData[0].id);
-    } catch(e) {}
-  };
-
   useEffect(() => {
     fetchData();
-    loadDependencies();
   }, []);
-
-  const handlePoChange = (id: string) => {
-     setPoId(id);
-     const po = pos.find(p => p.id === id);
-     if(po) {
-        setLines(po.Lines.map((l: any) => ({ itemId: l.itemId, name: l.item?.name || l.itemId, qty: l.qty })));
-     } else {
-        setLines([]);
-     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if(!poId) return toast.error("Pilih PO terlebih dahulu");
-    if(!warehouseToId) return toast.error("Pilih gudang tujuan");
-
-    try {
-      const res = await fetch("/api/transactions/receipt", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ date, poId, warehouseToId, notes, lines })
-      });
-      if(!res.ok) throw new Error((await res.json()).message);
-      toast.success("Penerimaan barang berhasil dicatat");
-      setOpen(false);
-      setPoId("");
-      setNotes("");
-      setLines([]);
-      fetchData();
-      loadDependencies(); // Refresh PO list
-    } catch(e: any) {
-      toast.error(e.message || "Gagal mencatat penerimaan");
-    }
-  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-            <h1 className="text-2xl font-bold tracking-tight">Penerimaan Barang (Good Receipt)</h1>
-            <p className="text-zinc-500">Menerima barang fisik masuk gudang dari PO</p>
+        <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic uppercase italic">Penerimaan Barang</h1>
+            <p className="text-xs text-zinc-500 font-medium tracking-tight uppercase italic opacity-70 tracking-widest leading-none">Pencatatan barang fisik masuk gudang dari pesanan pembelian</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>Input Penerimaan</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Terima Barang ke Gudang</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Pilih PO (Approved)</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={poId} onChange={e => handlePoChange(e.target.value)} required>
-                        <option value="">-- Pilih PO --</option>
-                        {pos.map(p => <option key={p.id} value={p.id}>{p.poNumber} ({p.supplier.name})</option>)}
-                    </select>
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Gudang Penerima</Label>
-                    <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={warehouseToId} onChange={e => setWarehouseToId(e.target.value)} required>
-                        {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                    </select>
-                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label>Tanggal Masuk</Label>
-                    <Input type="date" required value={date} onChange={e => setDate(e.target.value)} />
-                 </div>
-                 <div className="space-y-2">
-                    <Label>Keterangan / No Surat Jalan</Label>
-                    <Input value={notes} onChange={e => setNotes(e.target.value)} />
-                 </div>
-              </div>
-
-              {lines.length > 0 && (
-                <div className="border rounded-lg p-4 bg-zinc-50">
-                    <h4 className="font-bold mb-2">Item Diterima</h4>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Kode Item ID (Sementara)</TableHead>
-                                <TableHead className="w-32 text-right">Qty Masuk</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {lines.map((l, idx) => (
-                                <TableRow key={idx}>
-                                    <TableCell>{l.name}</TableCell>
-                                    <TableCell>
-                                        <Input type="number" min={1} value={l.qty} onChange={(e) => {
-                                            const newLines = [...lines];
-                                            newLines[idx].qty = Number(e.target.value);
-                                            setLines(newLines);
-                                        }} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-              )}
-
-              <div className="flex justify-end pt-4">
-                <Button type="submit">Catat Stok Masuk</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button 
+            onClick={() => navigate("/purchasing/receipt/new")}
+            className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-black uppercase italic tracking-widest gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
+        >
+            <PackageOpen className="w-4 h-4" /> Terima Barang
+        </Button>
       </div>
 
-      <div className="rounded-md border bg-white">
+      <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden text-sm">
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="bg-zinc-50">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
+              <TableHead className="pl-6">Status</TableHead>
               <TableHead>No. Dokumen</TableHead>
               <TableHead>Tanggal</TableHead>
               <TableHead>Referensi PO</TableHead>
-              <TableHead>Gudang Masuk</TableHead>
-              <TableHead>Total Item</TableHead>
-              <TableHead>Keterangan</TableHead>
+              <TableHead>Gudang Tujuan</TableHead>
+              <TableHead className="text-right">Total Baris</TableHead>
+              <TableHead className="text-center w-24 pr-6">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-               <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-20 text-zinc-400 font-bold uppercase tracking-widest italic">Memuat penerimaan...</TableCell></TableRow>
             ) : data.length === 0 ? (
-               <TableRow><TableCell colSpan={6} className="text-center">Belum ada penerimaan barang</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-24 text-zinc-300 font-black uppercase tracking-[0.2em] italic opacity-40">Belum ada barang masuk</TableCell></TableRow>
             ) : (
-                data.map(d => (
-                    <TableRow key={d.id}>
-                        <TableCell className="font-medium">{d.transNumber}</TableCell>
-                        <TableCell>{new Date(d.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{d.reference}</TableCell>
-                        <TableCell>{d.warehouseTo?.name}</TableCell>
-                        <TableCell>{d.Lines.length} baris</TableCell>
-                        <TableCell>{d.notes || '-'}</TableCell>
-                    </TableRow>
-                ))
+              data.map((d) => (
+                <TableRow 
+                    key={d.id} 
+                    className="h-16 group hover:bg-zinc-50 transition-all active:bg-zinc-100 cursor-pointer"
+                    onClick={() => navigate(`/purchasing/receipt/${d.id}`)}
+                >
+                  <TableCell className="pl-6">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      RECEIVED
+                    </span>
+                  </TableCell>
+                  <TableCell className="font-black text-[#1e3a5f]">
+                    <div className="flex flex-col">
+                        <span>{d.transNumber}</span>
+                        <span className="text-[9px] font-bold text-zinc-400 tracking-widest uppercase tracking-tighter">#{d.id.slice(-6)}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs font-bold text-zinc-500 italic">
+                      <div className="flex items-center gap-1.5 uppercase">
+                        <Calendar className="w-3 h-3 text-zinc-300" />
+                        {new Date(d.date).toLocaleDateString()}
+                      </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-blue-600 uppercase italic">
+                    <div className="flex items-center gap-1.5 leading-none">
+                        <FileText className="w-3 h-3 opacity-40" />
+                        {d.reference}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold text-zinc-700 uppercase italic">
+                      <div className="flex items-center gap-1.5">
+                        <Warehouse className="w-3 h-3 text-zinc-400" />
+                        {d.warehouseTo?.name}
+                      </div>
+                  </TableCell>
+                  <TableCell className="text-right font-black text-zinc-400 tabular-nums uppercase pr-6">
+                    {d.Lines.length} Items
+                  </TableCell>
+                  <TableCell className="text-center pr-6">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-zinc-300 group-hover:text-[#1e3a5f] rounded-full"
+                    >
+                        <ArrowRightSquare className="h-5 w-5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

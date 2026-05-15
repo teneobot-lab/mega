@@ -6,8 +6,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { useNavigate } from "react-router-dom";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
 
+import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { FileDown, Printer, ChevronLeft, ArrowRightLeft } from "lucide-react";
+import { Button } from "../../components/ui/button";
+import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from "../../components/ui/table";
+import { useNavigate } from "react-router-dom";
+import { exportToPDF } from "../../lib/export-utils";
+
+type CashFlowSection = {
+    name: string;
+    amount: number;
+};
+type CashFlowData = {
+    operating: CashFlowSection[];
+    investing: CashFlowSection[];
+    financing: CashFlowSection[];
+    netCashFlow: number;
+};
+
 export default function CashFlow() {
-  const [data, setData] = useState<{inflow: number, outflow: number} | null>(null);
+  const [data, setData] = useState<CashFlowData | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -15,20 +34,43 @@ export default function CashFlow() {
     fetch("/api/reports/cash-flow", {
         headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
     })
-    .then(res => res.json())
+    .then(res => {
+        if(!res.ok) throw new Error("Gagal mengambil data");
+        return res.json();
+    })
     .then(setData)
+    .catch(e => {
+        toast.error("Gagal mengambil data Arus Kas");
+        console.error(e);
+    })
     .finally(() => setLoading(false));
   }, []);
 
   const handleExportPDF = () => {
     if(!data) return;
-    const body = [
-        ["Total Arus Kas Masuk (Inflow)", `Rp ${data.inflow.toLocaleString()}`],
-        ["Total Arus Kas Keluar (Outflow)", `Rp ${data.outflow.toLocaleString()}`],
-        ["Arus Kas Bersih (Net)", `Rp ${(data.inflow - data.outflow).toLocaleString()}`]
-    ];
-    exportToPDF(["Deskripsi", "Jumlah"], body, "Laporan Arus Kas (Sederhana)", "Arus_Kas");
+    const body: any[][] = [];
+    data.operating.forEach(i => body.push([i.name, i.amount.toLocaleString()]));
+    data.investing.forEach(i => body.push([i.name, i.amount.toLocaleString()]));
+    data.financing.forEach(i => body.push([i.name, i.amount.toLocaleString()]));
+    body.push(["Total Arus Kas Bersih", data.netCashFlow.toLocaleString()]);
+    exportToPDF(["Deskripsi", "Jumlah"], body, "Laporan Arus Kas", "Cash_Flow");
   }
+
+  const renderSection = (title: string, items: CashFlowSection[]) => (
+      <div className="mb-6 border rounded shadow-sm bg-white overflow-hidden">
+          <div className="bg-zinc-50 px-4 py-2 text-xs font-bold uppercase text-zinc-600 border-b">{title}</div>
+          <Table>
+            <TableBody>
+                {items.map((item, i) => (
+                    <TableRow key={i} className="h-8">
+                        <TableCell className="text-xs">{item.name}</TableCell>
+                        <TableCell className="text-right text-xs text-zinc-700">Rp {item.amount.toLocaleString()}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+      </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -41,57 +83,27 @@ export default function CashFlow() {
         </div>
         <div className="flex space-x-2">
           <Button variant="outline" size="sm" onClick={handleExportPDF}>
-            <Printer className="w-4 h-4 mr-2" /> PDF
+            <FileDown className="w-4 h-4 mr-2" /> Export PDF
           </Button>
         </div>
       </div>
 
       {loading ? (
-          <div className="text-center py-20">Memuat Laporan...</div>
+          <div className="text-center py-20 text-zinc-500">Memuat Laporan...</div>
+      ) : !data ? (
+          <div className="text-center py-20 text-red-500">Data gagal dimuat.</div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3">
-            <Card className="border-green-200 bg-green-50/30">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cash Inflow</CardTitle>
-                    <TrendingUp className="h-4 h-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-green-700">Rp {data?.inflow.toLocaleString()}</div>
-                    <p className="text-xs text-zinc-500 mt-1">Total penerimaan periode ini</p>
-                </CardContent>
-            </Card>
+        <div className="grid gap-6">
+            {renderSection("Aktivitas Operasi", data.operating)}
+            {renderSection("Aktivitas Investasi", data.investing)}
+            {renderSection("Aktivitas Pendanaan", data.financing)}
 
-            <Card className="border-red-200 bg-red-50/30">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cash Outflow</CardTitle>
-                    <TrendingDown className="h-4 h-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-red-700">Rp {data?.outflow.toLocaleString()}</div>
-                    <p className="text-xs text-zinc-500 mt-1">Total pengeluaran periode ini</p>
-                </CardContent>
-            </Card>
-
-            <Card className="border-blue-200 bg-blue-50/30">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Net Cash Flow</CardTitle>
-                    <Wallet className="h-4 h-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-blue-700">Rp {(data ? data.inflow - data.outflow : 0).toLocaleString()}</div>
-                    <p className="text-xs text-zinc-500 mt-1">Arus kas bersih</p>
-                </CardContent>
-            </Card>
+            <div className="p-4 rounded border flex justify-between items-center bg-[#1e3a5f] text-white">
+                <h4 className="font-bold text-sm">TOTAL ARUS KAS BERSIH</h4>
+                <span className="text-xl font-black italic">Rp {data.netCashFlow.toLocaleString()}</span>
+            </div>
         </div>
       )}
-
-      <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h3 className="text-sm font-bold uppercase mb-4 text-zinc-500">Analisis Arus Kas</h3>
-          <p className="text-sm text-zinc-600 italic">
-              Laporan ini menunjukkan ringkasan dana yang masuk dan keluar dari operasional perusahaan. 
-              Gunakan laporan ini untuk merencanakan likuiditas jangka pendek.
-          </p>
-      </div>
     </div>
   );
 }
