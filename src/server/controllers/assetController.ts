@@ -13,6 +13,32 @@ export const getAssets = async (req: Request, res: Response) => {
   }
 };
 
+export const getAsset = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await prisma.fixedAsset.findUnique({
+      where: { id }
+    });
+    if (!data) return res.status(404).json({ message: "Asset not found" });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch asset" });
+  }
+};
+
+export const updateAsset = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.fixedAsset.update({
+      where: { id },
+      data: req.body
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update asset" });
+  }
+};
+
 export const createAsset = async (req: Request, res: Response) => {
     try {
         const { code, name, purchaseDate, purchasePrice, salvageValue, usefulLife, depreciationMethod, departmentId } = req.body;

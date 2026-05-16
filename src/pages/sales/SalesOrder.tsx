@@ -5,10 +5,12 @@ import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Printer, ShoppingCart, CheckCircle } from "lucide-react";
 import { PrintInvoice } from "../../components/PrintInvoice";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
+import { salesApi } from "../../lib/api-services";
 
 type SO = {
   id: string;
-  soNumber: string;
+  number: string;
   date: string;
   customer: { name: string, address?: string };
   status: string;
@@ -21,16 +23,15 @@ export default function SalesOrder() {
   const [data, setData] = useState<SO[]>([]);
   const [loading, setLoading] = useState(true);
   const [printData, setPrintData] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/sales/orders", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data SO");
+      const resData = await salesApi.getOrders();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data SO");
     } finally {
       setLoading(false);
     }
@@ -43,15 +44,11 @@ export default function SalesOrder() {
   const handleApprove = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`/api/sales/orders/${id}/approve`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if (!res.ok) throw new Error("Gagal menyetujui SO");
+      await salesApi.approveOrder(id);
       toast.success("SO berhasil disetujui");
       fetchData();
     } catch(e: any) {
-      toast.error(e.message);
+      toast.error(e.message || "Gagal menyetujui SO");
     }
   };
 
@@ -59,22 +56,27 @@ export default function SalesOrder() {
     e.stopPropagation();
     const printObj = {
         ...so,
-        invNumber: so.soNumber,
+        invNumber: so.number,
         contact: so.customer,
         type: "SALES",
     };
     setPrintData(printObj);
-    setTimeout(() => {
-        window.print();
-    }, 500);
+    setShowPreview(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Print Area */}
       <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
         <PrintInvoice data={printData} title="PESANAN PENJUALAN" />
       </div>
+
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Pesanan Penjualan"
+        data={printData}
+        Component={(props) => <PrintInvoice {...props} title="PESANAN PENJUALAN" />}
+      />
 
       <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">
@@ -125,10 +127,10 @@ export default function SalesOrder() {
                       {so.status}
                     </span>
                   </TableCell>
-                  <TableCell className="font-bold text-[#1e3a5f] group-hover:underline ">{so.soNumber}</TableCell>
+                  <TableCell className="font-bold text-[#1e3a5f] group-hover:underline ">{so.number}</TableCell>
                   <TableCell className="text-xs font-medium text-zinc-500">{new Date(so.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</TableCell>
                   <TableCell className="text-sm font-bold text-zinc-700">{so.customer?.name}</TableCell>
-                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums">Rp {so.total.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums">Rp {so.total?.toLocaleString()}</TableCell>
                   <TableCell className="text-center pr-6">
                     <div className="flex items-center justify-center gap-1">
                         <Button 

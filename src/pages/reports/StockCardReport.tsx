@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
+import { reportsApi, masterApi } from "../../lib/api-services";
 
 type StockCardData = {
   date: string;
@@ -21,6 +22,11 @@ export default function StockCardReport() {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [itemId, setItemId] = useState("");
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    masterApi.getItems().then(setItems).catch(console.error);
+  }, []);
 
   const fetchData = async () => {
     if (!itemId) {
@@ -29,14 +35,10 @@ export default function StockCardReport() {
     }
     setLoading(true);
     try {
-        const res = await fetch(`/api/reports/stock-card?itemId=${itemId}&startDate=${startDate}&endDate=${endDate}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const resData = await res.json();
-        if(res.ok) setData(resData);
-        else toast.error("Gagal mengambil data");
-    } catch(e) {
-        toast.error("Gagal mengambil data");
+        const resData = await reportsApi.getStockCard(itemId, startDate, endDate);
+        setData(resData);
+    } catch(e: any) {
+        toast.error(e.message || "Gagal mengambil data kartu stok");
     } finally {
         setLoading(false);
     }
@@ -73,7 +75,16 @@ export default function StockCardReport() {
       </div>
       
       <div className="bg-white p-4 rounded-xl border flex gap-4">
-          <Input placeholder="Pilih Item (Wajib)" className="max-w-[300px]" value={itemId} onChange={e => setItemId(e.target.value)} />
+          <select 
+            className="flex h-10 w-full max-w-[300px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={itemId} 
+            onChange={e => setItemId(e.target.value)}
+          >
+            <option value="">-- Pilih Item (Wajib) --</option>
+            {items.map(item => (
+              <option key={item.id} value={item.id}>{item.code} - {item.name}</option>
+            ))}
+          </select>
           <Input type="date" className="max-w-[200px]" value={startDate} onChange={e => setStartDate(e.target.value)} />
           <Input type="date" className="max-w-[200px]" value={endDate} onChange={e => setEndDate(e.target.value)} />
           <Button className="bg-[#1e3a5f]" onClick={fetchData} disabled={loading}>Filter</Button>
@@ -81,8 +92,8 @@ export default function StockCardReport() {
 
       <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
         <Table>
-          <TableHeader className="bg-zinc-50">
-            <TableRow className="h-10 text-[10px] uppercase font-black text-zinc-500">
+          <TableHeader className="bg-zinc-50/50">
+            <TableRow>
                <TableHead>Tanggal</TableHead>
                <TableHead>No Dokumen</TableHead>
                <TableHead>Keterangan</TableHead>
@@ -95,16 +106,16 @@ export default function StockCardReport() {
             {loading ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-10">Loading...</TableCell></TableRow>
             ) : data.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10">Pilih item untuk melihat kartu stok</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-10 font-bold text-zinc-400 italic">PILIH ITEM UNTUK MELIHAT KARTU STOK</TableCell></TableRow>
             ) : (
                 data.map((row, i) => (
                     <TableRow key={i}>
-                        <TableCell>{row.date}</TableCell>
-                        <TableCell>{row.docNo}</TableCell>
-                        <TableCell>{row.description}</TableCell>
-                        <TableCell className="text-right">{row.in.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{row.out.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{row.balance.toLocaleString()}</TableCell>
+                        <TableCell className="text-xs font-medium">{new Date(row.date).toLocaleDateString('id-ID')}</TableCell>
+                        <TableCell className="font-bold text-[#1e3a5f]">{row.docNo}</TableCell>
+                        <TableCell className="text-zinc-500 italic text-xs">{row.description}</TableCell>
+                        <TableCell className="text-right text-emerald-600 font-bold">{row.in > 0 ? row.in.toLocaleString() : "-"}</TableCell>
+                        <TableCell className="text-right text-red-600 font-bold">{row.out > 0 ? row.out.toLocaleString() : "-"}</TableCell>
+                        <TableCell className="text-right font-black text-[#1e3a5f]">{row.balance.toLocaleString()}</TableCell>
                     </TableRow>
                 ))
             )}

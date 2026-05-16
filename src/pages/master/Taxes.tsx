@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Percent } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Tax = {
   id: string;
@@ -20,13 +21,10 @@ export default function Taxes() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/master/taxes", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const resData = await res.json();
-      if(res.ok) setData(resData);
-    } catch (e) {
-      toast.error("Gagal mengambil data pajak");
+      const resData = await masterApi.getTaxes();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data pajak");
     } finally {
       setLoading(false);
     }

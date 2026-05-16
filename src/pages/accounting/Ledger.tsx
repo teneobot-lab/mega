@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
+import { accountingApi, masterApi } from "../../lib/api-services";
 
 export default function Ledger() {
   const [data, setData] = useState<{account: any, entries: any[]}>({ account: null, entries: []});
@@ -15,27 +16,24 @@ export default function Ledger() {
 
   const loadAccounts = async () => {
     try {
-      const res = await fetch("/api/master/accounts", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }});
-      if(res.ok) {
-          const body = await res.json();
-          setAccounts(body);
-          if(body.length > 0) {
-            setAccountId(body[0].id);
-          }
+      const body = await masterApi.getAccounts();
+      setAccounts(body);
+      if(body.length > 0) {
+        setAccountId(body[0].id);
       }
-    } catch (e) {}
+    } catch (e: any) {
+        toast.error(e.message || "Gagal mengambil daftar akun");
+    }
   };
 
   const fetchLedger = async () => {
     if(!accountId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/accounting/ledger?accountId=${accountId}&startDate=${startDate}&endDate=${endDate}`, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil buku besar");
+      const resData = await accountingApi.getLedger({ accountId, startDate, endDate });
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil buku besar");
     } finally {
       setLoading(false);
     }
@@ -106,7 +104,7 @@ export default function Ledger() {
             ) : data.entries.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center">Belum ada transaksi</TableCell></TableRow>
             ) : (
-              data.entries.map((e) => {
+              (data?.entries || []).map((e) => {
                 const isDebitIncrease = ['ASSET', 'EXPENSE'].includes(data.account.type);
                 if (isDebitIncrease) {
                     runningBalance += (e.debit - e.credit);

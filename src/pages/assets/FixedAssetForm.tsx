@@ -1,24 +1,20 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Wallet, Calendar, Calculator, Box, History, ShieldCheck, Bookmark, FileText, TrendingDown, Info, ArrowUpRight } from "lucide-react";
+import { assetsApi, masterApi } from "../../lib/api-services";
 
 export default function FixedAssetForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving asset registry draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -36,18 +32,12 @@ export default function FixedAssetForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const accRes = await fetch("/api/master/accounts", { 
-          headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const allAccs = await accRes.json();
+        const allAccs = await masterApi.getAccounts();
         const assetAccs = allAccs.filter((a: any) => a.type === 'ASSET' || a.type === 'FIXED_ASSET' || a.code.startsWith('12'));
         setAccounts(assetAccs);
 
         if (isEdit) {
-          const res = await fetch(`/api/assets/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await assetsApi.getAsset(id);
           setFormData({
             code: data.code,
             name: data.name,
@@ -62,7 +52,9 @@ export default function FixedAssetForm() {
         } else {
            if(assetAccs.length > 0) setFormData(prev => ({...prev, accountId: assetAccs[0].id}));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -74,22 +66,14 @@ export default function FixedAssetForm() {
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/assets" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (res.ok) {
-        toast.success(`Entitas aset tetap berhasil ${isEdit ? 'diperbarui' : 'didaftarkan di Ledger'}`);
-        setIsDirty(false);
-        navigate("/assets");
+      if (isEdit) {
+        await assetsApi.updateAsset(id, formData);
       } else {
-        throw new Error("Gagal menyimpan data aset");
+        await assetsApi.createAsset(formData);
       }
+
+      toast.success(`Entitas aset tetap berhasil ${isEdit ? 'diperbarui' : 'didaftarkan di Ledger'}`);
+      navigate("/assets");
     } catch (e: any) {
       toast.error(e.message || "Gagal melakukan transmisi data ke server");
     } finally {
@@ -103,9 +87,9 @@ export default function FixedAssetForm() {
       module="Assets > Fixed Asset Management"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/assets")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
+      isAutoSaving={false}
       isEdit={isEdit}
     >
       <div className="max-w-6xl mx-auto space-y-10 pb-32">

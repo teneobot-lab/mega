@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { toast } from "sonner";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
+import { reportsApi } from "../../lib/api-services";
 
 type SalesData = {
   code: string;
@@ -24,14 +25,10 @@ export default function SalesReport() {
   const fetchData = async () => {
     setLoading(true);
     try {
-        const res = await fetch(`/api/reports/sales?type=${tab}&startDate=${startDate}&endDate=${endDate}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const resData = await res.json();
-        if(res.ok) setData(resData);
-        else toast.error("Gagal mengambil data");
-    } catch(e) {
-        toast.error("Gagal mengambil data");
+        const resData = await reportsApi.getSales(startDate, endDate);
+        setData(resData);
+    } catch(e: any) {
+        toast.error(e.message || "Gagal mengambil data laporan penjualan");
     } finally {
         setLoading(false);
     }

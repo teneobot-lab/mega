@@ -1,26 +1,21 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
 import { Truck, Box, Calendar, FileText, Warehouse, History, Search, ArrowRight, PackageCheck } from "lucide-react";
+import { salesApi, masterApi } from "../../lib/api-services";
 
 export default function SalesDeliveryForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving sales delivery draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     soId: "",
     warehouseFromId: "",
     notes: "",
@@ -35,14 +30,11 @@ export default function SalesDeliveryForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [wRes, soRes, itmRes] = await Promise.all([
-          fetch("/api/master/warehouses", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/sales/orders", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [w, s, itm] = await Promise.all([
+          masterApi.getWarehouses(),
+          salesApi.getOrders(),
+          masterApi.getItems()
         ]);
-        const w = await wRes.json();
-        const s = await soRes.json();
-        const itm = await itmRes.json();
         
         setWarehouses(w);
         const validSos = s.filter((p: any) => p.status === "APPROVED" || p.id === formData.soId);
@@ -50,18 +42,15 @@ export default function SalesDeliveryForm() {
         setAvailableItems(itm);
 
         if (isEdit) {
-          const res = await fetch(`/api/transactions/delivery/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await salesApi.getDelivery(id!);
           setFormData({
-            date: data.date.split('T')[0],
+            date: data.date?.split('T')[0],
             soId: data.soId || "",
             warehouseFromId: data.warehouseFromId || (w.length > 0 ? w[0].id : ""),
             notes: data.notes || "",
             status: "DELIVERED"
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -72,7 +61,9 @@ export default function SalesDeliveryForm() {
         } else {
           if (w.length > 0) setFormData(prev => ({ ...prev, warehouseFromId: w[0].id }));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data pendukung");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -90,7 +81,6 @@ export default function SalesDeliveryForm() {
         qty: l.qty
       })));
     }
-    setIsDirty(true);
   };
 
   const handleSave = async () => {
@@ -105,22 +95,14 @@ export default function SalesDeliveryForm() {
           lines: cartItems.map(it => ({ itemId: it.itemId, qty: it.qty }))
       };
 
-      const res = await fetch("/api/transactions/delivery" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        toast.success(`Pengiriman Barang berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/sales/delivery");
+      if (isEdit) {
+        await salesApi.updateDelivery(id!, payload);
       } else {
-        throw new Error("Gagal menyimpan");
+        await salesApi.createDelivery(payload);
       }
+
+      toast.success(`Pengiriman Barang berhasil disimpan`);
+      navigate("/sales/delivery");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -136,9 +118,8 @@ export default function SalesDeliveryForm() {
       module="Penjualan > Sales Delivery"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/sales/delivery")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="p-2 space-y-2">
@@ -160,7 +141,7 @@ export default function SalesDeliveryForm() {
                 <select 
                     className="ac-input"
                     value={formData.warehouseFromId}
-                    onChange={e => { setFormData({...formData, warehouseFromId: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, warehouseFromId: e.target.value}); }}
                 >
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
@@ -172,7 +153,7 @@ export default function SalesDeliveryForm() {
                     type="date"
                     className="ac-input" 
                     value={formData.date}
-                    onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, date: e.target.value}); }}
                 />
             </div>
 
@@ -182,7 +163,7 @@ export default function SalesDeliveryForm() {
                     className="ac-input"
                     placeholder="Catatan..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
             </div>
         </div>
@@ -193,7 +174,6 @@ export default function SalesDeliveryForm() {
                 availableItems={availableItems}
                 onChange={(items) => {
                     setCartItems(items);
-                    setIsDirty(true);
                 }}
             />
         </div>
@@ -207,7 +187,7 @@ export default function SalesDeliveryForm() {
                     className="w-full h-28 bg-white border border-zinc-200 rounded-2xl p-5 text-sm font-medium focus:ring-4 focus:ring-zinc-100 outline-none transition-all italic placeholder:text-zinc-300"
                     placeholder="Contoh: Dikirim via JNE (Resi: 12345), atau armada internal cabang. Berikan catatan detail pengemasan jika ada..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
             </div>
 

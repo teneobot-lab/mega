@@ -1,27 +1,22 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { PackageOpen, Box, Calendar, History, Warehouse, FileCheck, Truck, ArrowRight } from "lucide-react";
+import { purchasingApi, masterApi } from "../../lib/api-services";
 
 export default function PurchaseReceiptForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving receipt draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     poId: "",
     warehouseToId: "",
     notes: "",
@@ -36,32 +31,26 @@ export default function PurchaseReceiptForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [wRes, poRes, itmRes] = await Promise.all([
-          fetch("/api/master/warehouses", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/purchasing/orders", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [w, p, itm] = await Promise.all([
+          masterApi.getWarehouses(),
+          purchasingApi.getOrders(),
+          masterApi.getItems()
         ]);
-        const w = await wRes.json();
-        const p = await poRes.json();
-        const itm = await itmRes.json();
         
         setWarehouses(w);
         setPos(p.filter((po: any) => po.status === "APPROVED" || po.status === "PARTIAL"));
         setAvailableItems(itm);
 
         if (isEdit) {
-          const res = await fetch(`/api/transactions/receipt/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await purchasingApi.getReceipt(id!);
           setFormData({
-            date: data.date.split('T')[0],
+            date: data.date?.split('T')[0],
             poId: data.poId || "",
             warehouseToId: data.warehouseToId,
             notes: data.notes || "",
             status: "RECEIVED"
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -72,7 +61,9 @@ export default function PurchaseReceiptForm() {
         } else {
           if (w.length > 0) setFormData(prev => ({ ...prev, warehouseToId: w[0].id }));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data pendukung");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -90,7 +81,6 @@ export default function PurchaseReceiptForm() {
         uom: l.item?.baseUom?.name || 'Unit',
         qty: l.qty
       })));
-      setIsDirty(true);
     }
   };
 
@@ -106,22 +96,14 @@ export default function PurchaseReceiptForm() {
           lines: cartItems.map(it => ({ itemId: it.itemId, qty: it.qty }))
       };
 
-      const res = await fetch("/api/transactions/receipt" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        toast.success(`Penerimaan barang berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/purchasing/receipt");
+      if (isEdit) {
+        await purchasingApi.updateReceipt(id!, payload);
       } else {
-        throw new Error("Gagal menyimpan");
+        await purchasingApi.createReceipt(payload);
       }
+
+      toast.success(`Penerimaan barang berhasil disimpan`);
+      navigate("/purchasing/receipt");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -137,9 +119,8 @@ export default function PurchaseReceiptForm() {
       module="Pembelian > Purchase Receipt"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/purchasing/receipt")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="p-2 space-y-2">
@@ -161,7 +142,7 @@ export default function PurchaseReceiptForm() {
                 <select 
                     className="ac-input"
                     value={formData.warehouseToId}
-                    onChange={e => { setFormData({...formData, warehouseToId: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, warehouseToId: e.target.value}); }}
                 >
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
@@ -173,7 +154,7 @@ export default function PurchaseReceiptForm() {
                     type="date"
                     className="ac-input" 
                     value={formData.date}
-                    onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, date: e.target.value}); }}
                 />
             </div>
 
@@ -183,7 +164,7 @@ export default function PurchaseReceiptForm() {
                     className="ac-input"
                     placeholder="Catatan..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
             </div>
         </div>
@@ -194,7 +175,6 @@ export default function PurchaseReceiptForm() {
                 availableItems={availableItems}
                 onChange={(items) => {
                     setCartItems(items);
-                    setIsDirty(true);
                 }}
             />
         </div>
@@ -208,7 +188,7 @@ export default function PurchaseReceiptForm() {
                     className="w-full h-28 bg-white border border-zinc-200 rounded-2xl p-5 text-sm font-medium focus:ring-4 focus:ring-zinc-100 outline-none transition-all italic placeholder:text-zinc-300"
                     placeholder="Masukkan nomor surat jalan vendor, nama ekspedisi, atau keterangan fisik barang yang diterima..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
                 <div className="absolute bottom-4 right-8 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest italic leading-none">Auto-Sync Active</span>

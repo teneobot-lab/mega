@@ -2,6 +2,8 @@ import express from "express";
 import { prisma } from "../prisma";
 import jwt from "jsonwebtoken";
 
+import * as financeController from "../controllers/financeController";
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev_only";
 
@@ -21,7 +23,9 @@ router.use(authenticateToken);
 // ========================
 // TRANSFER KAS / BANK
 // ========================
-router.post("/transfer", async (req, res) => {
+router.get("/transfers", financeController.getTransfers);
+
+router.post("/transfers", async (req, res) => {
   try {
     const { date, sourceAccountId, targetAccountId, amount, notes } = req.body;
     
@@ -64,7 +68,9 @@ router.post("/transfer", async (req, res) => {
 // ========================
 // PENERIMAAN / PENGELUARAN KAS LAINNYA
 // ========================
-router.post("/expense", async (req, res) => {
+router.get("/expenses", financeController.getExpenses);
+
+router.post("/expenses", async (req, res) => {
     try {
         // Pengeluaran Kas
         const { date, bankAccountId, targetAccountId, amount, notes } = req.body;
@@ -96,7 +102,9 @@ router.post("/expense", async (req, res) => {
       }
 });
 
-router.post("/receipt", async (req, res) => {
+router.get("/receipts", financeController.getReceipts);
+
+router.post("/receipts", async (req, res) => {
     try {
         // Penerimaan Kas
         const { date, bankAccountId, sourceAccountId, amount, notes } = req.body;

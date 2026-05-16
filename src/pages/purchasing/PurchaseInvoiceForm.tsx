@@ -6,7 +6,7 @@ import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
 import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { apiFetch } from "../../lib/api";
 import { History, Search, FileText, Receipt, Calendar, CreditCard, ChevronDown } from "lucide-react";
 
 export default function PurchaseInvoiceForm() {
@@ -21,8 +21,8 @@ export default function PurchaseInvoiceForm() {
   });
   
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
+    dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString()?.split('T')[0],
     supplierId: "",
     poId: "",
     notes: "",
@@ -37,33 +37,27 @@ export default function PurchaseInvoiceForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [supRes, itmRes, poRes] = await Promise.all([
-          fetch("/api/master/contacts?type=SUPPLIER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/purchasing/orders", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [sup, itm, pd] = await Promise.all([
+          apiFetch("/api/master/contacts?type=SUPPLIER"),
+          apiFetch("/api/master/items"),
+          apiFetch("/api/purchasing/orders")
         ]);
-        const sup = await supRes.json();
-        const itm = await itmRes.json();
-        const pd = await poRes.json();
         
         setSuppliers(sup);
         setAvailableItems(itm);
         setPos(pd.filter((p: any) => p.status === "APPROVED" || p.status === "PARTIAL"));
 
         if (isEdit) {
-          const res = await fetch(`/api/purchasing/invoices/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await apiFetch(`/api/purchasing/invoices/${id}`);
           setFormData({
-            date: data.date.split('T')[0],
-            dueDate: data.dueDate.split('T')[0],
+            date: data.date?.split('T')[0],
+            dueDate: data.dueDate?.split('T')[0],
             supplierId: data.supplierId,
             poId: data.poId || "",
             notes: data.notes || "",
             status: data.status
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -76,7 +70,9 @@ export default function PurchaseInvoiceForm() {
         } else {
           if (sup.length > 0) setFormData(prev => ({ ...prev, supplierId: sup[0].id }));
         }
-      } catch (e) {}
+      } catch (e: any) {
+        toast.error(e.message || "Gagal memuat data");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -115,22 +111,14 @@ export default function PurchaseInvoiceForm() {
           }))
       };
 
-      const res = await fetch("/api/purchasing/invoices" + (isEdit ? `/${id}` : ""), {
+      await apiFetch("/api/purchasing/invoices" + (isEdit ? `/${id}` : ""), {
         method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        toast.success(`Faktur Pembelian berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/purchasing/invoice");
-      } else {
-        throw new Error("Gagal menyimpan");
-      }
+      toast.success(`Faktur Pembelian berhasil disimpan`);
+      setIsDirty(false);
+      navigate("/purchasing/invoice");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {

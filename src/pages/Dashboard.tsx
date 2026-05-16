@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Users, Truck, ShoppingCart, Box, TrendingUp, ArrowUpRight, ArrowDownLeft, Activity } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
+import { dashboardApi } from "../lib/api-services";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -13,13 +15,15 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-     fetch("/api/dashboard/summary", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` } })
-        .then(res => res.json())
+     dashboardApi.getSummary()
         .then(d => {
             setData(d);
             setLoading(false);
         })
-        .catch(e => console.error(e));
+        .catch(e => {
+            console.error(e);
+            toast.error("Gagal mengambil ringkasan dashboard");
+        });
   }, []);
 
   return (

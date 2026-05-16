@@ -10,6 +10,17 @@ router.use(authenticateToken);
 router.get("/orders", purchasingController.getOrders);
 router.post("/orders", purchasingController.createOrder);
 
+router.get("/orders/:id", purchasingController.getOrder);
+router.put("/orders/:id", purchasingController.updateOrder);
+router.post("/orders/:id/approve", purchasingController.approveOrder);
+router.get("/invoices/:id", purchasingController.getInvoice);
+router.put("/invoices/:id", purchasingController.updateInvoice);
+router.get("/payments/:id", purchasingController.getPayment);
+router.put("/payments/:id", purchasingController.updatePayment);
+router.get("/returns/:id", purchasingController.getReturn);
+router.put("/returns/:id", purchasingController.updateReturn);
+
+
 router.get("/invoices", purchasingController.getInvoices);
 router.post("/invoices", purchasingController.createInvoice);
 
@@ -142,6 +153,7 @@ router.get("/returns", async (req, res) => {
 router.post("/returns", async (req, res) => {
   try {
     const { date, contactId, notes, lines, warehouseId } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
     
     // Auto-generate Return Number
     const count = await prisma.invoice.count({ where: { type: "PURCHASE_RETURN" } }) + 1;

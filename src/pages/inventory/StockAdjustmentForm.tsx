@@ -1,25 +1,20 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
+import { inventoryApi, masterApi } from "../../lib/api-services";
 
 export default function StockAdjustmentForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving adjustment draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     warehouseId: "",
     notes: "",
     status: "DRAFT"
@@ -31,10 +26,17 @@ export default function StockAdjustmentForm() {
 
   useEffect(() => {
     const loadData = async () => {
-        // Mock data fetch for now
-        setWarehouses([{ id: '1', name: 'Gudang Utama' }, { id: '2', name: 'Gudang Cabang' }]);
-        setAvailableItems([{ id: '1', name: 'Item A', code: 'A' }]);
-        if (warehouses.length > 0) setFormData(prev => ({ ...prev, warehouseId: warehouses[0].id }));
+        try {
+            const [ws, its] = await Promise.all([
+                masterApi.getWarehouses(),
+                masterApi.getItems()
+            ]);
+            setWarehouses(ws);
+            setAvailableItems(its);
+            if (ws.length > 0) setFormData(prev => ({ ...prev, warehouseId: ws[0].id }));
+        } catch (e) {
+            toast.error("Gagal mengambil data referensi");
+        }
     };
     loadData();
   }, []);
@@ -45,8 +47,15 @@ export default function StockAdjustmentForm() {
 
     setIsSaving(true);
     try {
+        await inventoryApi.createAdjustment({
+            ...formData,
+            items: cartItems.map(it => ({
+                itemId: it.itemId,
+                qty: it.qty,
+                notes: ""
+            }))
+        });
         toast.success(`Penyesuaian stok berhasil disimpan`);
-        setIsDirty(false);
         navigate("/inventory/stocks");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
@@ -61,9 +70,8 @@ export default function StockAdjustmentForm() {
       module="Inventory > Stock Adjustment"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/inventory/stocks")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="p-2 space-y-2">
@@ -73,7 +81,7 @@ export default function StockAdjustmentForm() {
                 <select 
                     className="ac-input"
                     value={formData.warehouseId}
-                    onChange={e => { setFormData({...formData, warehouseId: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, warehouseId: e.target.value}); }}
                 >
                     <option value="">Pilih Gudang...</option>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -86,7 +94,7 @@ export default function StockAdjustmentForm() {
                     type="date"
                     className="ac-input" 
                     value={formData.date}
-                    onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, date: e.target.value}); }}
                 />
             </div>
 
@@ -96,7 +104,7 @@ export default function StockAdjustmentForm() {
                     className="ac-input"
                     placeholder="Catatan..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
             </div>
         </div>
@@ -107,7 +115,6 @@ export default function StockAdjustmentForm() {
                 availableItems={availableItems}
                 onChange={(items) => {
                     setCartItems(items);
-                    setIsDirty(true);
                 }}
             />
         </div>

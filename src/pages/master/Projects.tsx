@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Briefcase } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Project = {
   id: string;
@@ -19,13 +20,10 @@ export default function Projects() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/master/projects", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const resData = await res.json();
-      if(res.ok) setData(resData);
-    } catch (e) {
-      toast.error("Gagal mengambil data proyek");
+      const resData = await masterApi.getProjects();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data proyek");
     } finally {
       setLoading(false);
     }

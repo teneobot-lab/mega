@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, User } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Salesman = {
   id: string;
@@ -23,13 +24,10 @@ export default function Salesman() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/master/salesman", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const resData = await res.json();
-      if(res.ok) setData(resData);
-    } catch (e) {
-      toast.error("Gagal mengambil data salesman");
+      const resData = await masterApi.getSalesmen();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data salesman");
     } finally {
       setLoading(false);
     }

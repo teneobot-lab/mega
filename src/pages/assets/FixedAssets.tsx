@@ -20,6 +20,7 @@ import {
 } from "../../components/ui/dialog";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
+import { assetsApi } from "../../lib/api-services";
 
 export default function FixedAssets() {
   const [data, setData] = useState<any[]>([]);
@@ -33,12 +34,10 @@ export default function FixedAssets() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/assets", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data aset tetap");
+      const resData = await assetsApi.getAssets();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data aset tetap");
     } finally {
       setLoading(false);
     }
@@ -51,19 +50,11 @@ export default function FixedAssets() {
   const handleDispose = async () => {
     if(!selectedAsset) return;
     try {
-      const res = await fetch(`/api/assets/${selectedAsset.id}/dispose`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ 
-          date: disposeDate, 
-          amount: disposeAmount, 
-          notes: "Disposal Aset via UI" 
-        })
+      await assetsApi.disposeAsset(selectedAsset.id, { 
+        date: disposeDate, 
+        amount: disposeAmount, 
+        notes: "Disposal Aset via UI" 
       });
-      if(!res.ok) throw new Error((await res.json()).message);
       toast.success("Aset berhasil di-dispose");
       setDisposeOpen(false);
       fetchData();

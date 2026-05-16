@@ -13,6 +13,8 @@ import {
 } from "../../components/ui/table";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
 import { useNavigate } from "react-router-dom";
+import { reportsApi } from "../../lib/api-services";
+import { toast } from "sonner";
 
 export default function ARAging() {
   const [data, setData] = useState<any[]>([]);
@@ -21,11 +23,9 @@ export default function ARAging() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/sales/aging-ar", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-    })
-    .then(res => res.json())
+    reportsApi.getArAging(new Date().toISOString().split('T')[0])
     .then(setData)
+    .catch(e => toast.error(e.message || "Gagal mengambil data Aging AR"))
     .finally(() => setLoading(false));
   }, []);
 

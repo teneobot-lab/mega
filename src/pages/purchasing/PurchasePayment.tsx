@@ -5,6 +5,8 @@ import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Printer, Plus, Wallet, Calendar, FileText } from "lucide-react";
 import { PrintVoucher } from "../../components/PrintVoucher";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
+import { purchasingApi } from "../../lib/api-services";
 
 type Payment = {
   id: string;
@@ -21,16 +23,15 @@ export default function PurchasePayment() {
   const [data, setData] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [printData, setPrintData] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/purchasing/payments", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data Pembayaran");
+      const resData = await purchasingApi.getPayments();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data Pembayaran");
     } finally {
       setLoading(false);
     }
@@ -41,7 +42,7 @@ export default function PurchasePayment() {
   }, []);
 
   const handlePrint = (pay: any) => {
-    const bankEntry = pay.Journals?.[0]?.Entries?.find((e: any) => e.credit > 0);
+    const bankEntry = pay.Journals?.[0]?.Entries?.find((e: any) => (e.credit || 0) > 0);
     const voucherData = {
         ...pay,
         type: "PAY", 
@@ -49,9 +50,7 @@ export default function PurchasePayment() {
         invoice: pay.Lines?.[0]?.invoice
     };
     setPrintData(voucherData);
-    setTimeout(() => {
-        window.print();
-    }, 500);
+    setShowPreview(true);
   };
 
   return (
@@ -59,6 +58,14 @@ export default function PurchasePayment() {
       <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
         <PrintVoucher data={printData} />
       </div>
+
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Voucher Pembayaran"
+        data={printData}
+        Component={PrintVoucher}
+      />
 
       <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">

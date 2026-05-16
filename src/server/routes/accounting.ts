@@ -2,6 +2,8 @@ import express from "express";
 import { prisma } from "../prisma";
 import jwt from "jsonwebtoken";
 
+import * as accountingController from "../controllers/accountingController";
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev_only";
 
@@ -40,10 +42,14 @@ router.get("/journals", async (req, res) => {
   }
 });
 
+router.get("/journals/:id", accountingController.getJournal);
+router.put("/journals/:id", accountingController.updateJournal);
+
 // MEMBUAT JURNAL MANUAL
 router.post("/journals", async (req, res) => {
     try {
       const { date, description, entries } = req.body;
+      if (!entries || !Array.isArray(entries)) return res.status(400).json({ message: "Invalid entries array" });
       
       let totalDebit = 0;
       let totalCredit = 0;

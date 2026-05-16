@@ -3,12 +3,14 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Plus, Printer, FileText, Calendar, Wallet } from "lucide-react";
+import { Plus, Printer, Calendar, Wallet } from "lucide-react";
 import { PrintInvoice } from "../../components/PrintInvoice";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
+import { purchasingApi } from "../../lib/api-services";
 
 type Invoice = {
   id: string;
-  invNumber: string;
+  number: string;
   date: string;
   dueDate: string;
   contact: { name: string, address?: string };
@@ -24,17 +26,15 @@ export default function PurchaseInvoice() {
   const [data, setData] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [printData, setPrintData] = useState<Invoice | null>(null);
-  const [isPrinting, setIsPrinting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/purchasing/invoices", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data Faktur");
+      const resData = await purchasingApi.getInvoices();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data Faktur");
     } finally {
       setLoading(false);
     }
@@ -45,24 +45,27 @@ export default function PurchaseInvoice() {
   }, []);
 
   const handlePrint = (inv: Invoice) => {
-    setPrintData(inv);
-    setIsPrinting(true);
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 500);
+    setPrintData({ ...inv, type: "PURCHASE" } as any);
+    setShowPreview(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Printable Area */}
       <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
         <PrintInvoice data={printData} />
       </div>
 
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Faktur Pembelian"
+        data={printData}
+        Component={PrintInvoice}
+      />
+
       <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic italic">Faktur Pembelian</h1>
+            <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic">Faktur Pembelian</h1>
             <p className="text-xs text-zinc-500 font-medium tracking-tight">Manajemen kewajiban vendor dan stok masuk secara akurat</p>
         </div>
         <Button 
@@ -78,16 +81,15 @@ export default function PurchaseInvoice() {
               <div className="p-3 bg-red-50 rounded-xl text-red-600"><Wallet className="w-6 h-6" /></div>
               <div className="flex flex-col">
                   <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Total Hutang</span>
-                  <span className="text-xl font-black text-[#1e3a5f] tabular-nums">Rp {data.reduce((s,i) => s + (i.status === 'UNPAID' ? i.balance : 0), 0).toLocaleString()}</span>
+                  <span className="text-xl font-black text-[#1e3a5f] tabular-nums">Rp {data.reduce((s,i) => s + (i.status === 'UNPAID' ? (i.balance || 0) : 0), 0).toLocaleString()}</span>
               </div>
           </div>
-          {/* Add more stats if needed */}
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
         <Table>
           <TableHeader className="bg-zinc-50">
-            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
+            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic">
               <TableHead className="pl-6">Status</TableHead>
               <TableHead>Nomor Faktur</TableHead>
               <TableHead>Tanggal & Tempo</TableHead>
@@ -112,7 +114,7 @@ export default function PurchaseInvoice() {
                   </TableCell>
                   <TableCell className="font-black text-[#1e3a5f]" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>
                     <div className="flex flex-col">
-                        <span>{inv.invNumber}</span>
+                        <span>{inv.number}</span>
                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">#{inv.id.slice(-6)}</span>
                     </div>
                   </TableCell>
@@ -123,8 +125,8 @@ export default function PurchaseInvoice() {
                       </div>
                   </TableCell>
                   <TableCell className="font-bold text-zinc-700 uppercase italic tracking-tight" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>{inv.contact?.name}</TableCell>
-                  <TableCell className="text-right font-black text-zinc-400 tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.total.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.balance.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-black text-zinc-400 tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.total?.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums" onClick={() => navigate(`/purchasing/invoice/${inv.id}`)}>Rp {inv.balance?.toLocaleString()}</TableCell>
                   <TableCell className="text-center pr-6">
                     <Button 
                       variant="ghost" 

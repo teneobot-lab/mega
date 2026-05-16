@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { RotateCw, Plus, Calendar, ArrowRightSquare, Users } from "lucide-react";
+import { salesApi } from "../../lib/api-services";
 
 export default function SalesReturn() {
   const [data, setData] = useState<any[]>([]);
@@ -12,12 +13,10 @@ export default function SalesReturn() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/sales/returns", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data retur penjualan");
+      const resData = await salesApi.getReturns();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data retur penjualan");
     } finally {
       setLoading(false);
     }

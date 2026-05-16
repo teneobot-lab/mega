@@ -14,6 +14,16 @@ router.get("/aging-ar", salesController.getAgingAR);
 router.get("/orders", salesController.getOrders);
 router.post("/orders", salesController.createOrder);
 
+router.get("/orders/:id", salesController.getOrder);
+router.put("/orders/:id", salesController.updateOrder);
+router.post("/orders/:id/approve", salesController.approveOrder);
+router.get("/invoices/:id", salesController.getInvoice);
+router.put("/invoices/:id", salesController.updateInvoice);
+router.get("/payments/:id", salesController.getPayment);
+router.put("/payments/:id", salesController.updatePayment);
+router.get("/returns/:id", salesController.getReturn);
+router.put("/returns/:id", salesController.updateReturn);
+
 // Note: Other endpoints (SO, Receipt, Returns) should also be moved to controller but for audit completion we focus on the main ones
 // I will implement the missing ones in পরবর্তী turns to ensure robustness
 
@@ -141,6 +151,7 @@ router.get("/returns", async (req, res) => {
 router.post("/returns", async (req, res) => {
   try {
     const { date, contactId, notes, lines, warehouseId } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
     
     // Auto-generate Return Number
     const count = await prisma.invoice.count({ where: { type: "SALES_RETURN" } }) + 1;

@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { ArrowRightLeft, Plus, Calendar, Landmark, ArrowRightSquare, Wallet } from "lucide-react";
+import { ArrowRightLeft, Calendar, Landmark, ArrowRightSquare } from "lucide-react";
+import { financeApi } from "../../lib/api-services";
 
 export default function TransferBank() {
   const [data, setData] = useState<any[]>([]);
@@ -12,17 +13,10 @@ export default function TransferBank() {
 
   const fetchData = async () => {
     try {
-      // Mencoba mengambil riwayat transfer
-      const res = await fetch("/api/finance/transfers", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-      else {
-          // Jika endpoint tidak ada, sembunyikan loading saja (state dummy)
-          setData([]);
-      }
-    } catch (e) {
-      console.log("No transfers history found or endpoint inaccessible");
+      const resData = await financeApi.getTransfers();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data transfer");
     } finally {
       setLoading(false);
     }
@@ -49,20 +43,20 @@ export default function TransferBank() {
 
       <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden text-sm">
         <Table>
-          <TableHeader className="bg-zinc-50">
-            <TableRow className="h-12 text-zinc-500 uppercase font-black text-[10px] tracking-widest italic tracking-widest italic">
-              <TableHead className="pl-6 w-32">Status</TableHead>
+          <TableHeader className="bg-zinc-50/50">
+            <TableRow>
+              <TableHead className="w-32">Status</TableHead>
               <TableHead>No. Dokumen</TableHead>
               <TableHead>Tanggal</TableHead>
               <TableHead>Dari Akun</TableHead>
-              <TableHead className="text-center"><ArrowRightLeft className="w-3 h-3 mx-auto" /></TableHead>
+              <TableHead className="text-center w-12"><ArrowRightLeft className="w-3 h-3 mx-auto" /></TableHead>
               <TableHead>Ke Akun</TableHead>
-              <TableHead className="text-right pr-6">Jumlah Pindah</TableHead>
+              <TableHead className="text-right">Jumlah Pindah</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-20 text-zinc-400 font-medium uppercase tracking-widest italic italic">Memproses riwayat transfer...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-20 text-zinc-400 font-medium uppercase tracking-widest italic">Memproses riwayat transfer...</TableCell></TableRow>
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-32 space-y-4">
@@ -76,10 +70,10 @@ export default function TransferBank() {
               data.map((d) => (
                 <TableRow 
                     key={d.id} 
-                    className="h-16 group hover:bg-zinc-50 transition-all active:bg-zinc-100 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() => navigate(`/cash-bank/transfer/${d.id}`)}
                 >
-                  <TableCell className="pl-6">
+                  <TableCell>
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200">
                       COMPLETED
                     </span>
@@ -93,25 +87,25 @@ export default function TransferBank() {
                   <TableCell className="text-xs font-bold text-zinc-500 italic">
                       <div className="flex items-center gap-1.5 uppercase leading-none italic uppercase">
                         <Calendar className="w-3 h-3 text-zinc-300" />
-                        {new Date(d.date).toLocaleDateString()}
+                        {new Date(d.date).toLocaleDateString('id-ID')}
                       </div>
                   </TableCell>
                   <TableCell className="font-bold text-red-500 uppercase italic">
                     <div className="flex items-center gap-2">
-                        <Landmark className="w-3 h-3 opacity-30" />
+                        < Landmark className="w-3 h-3 opacity-30" />
                         {d.sourceAccount?.name || 'Rekening Sumber'}
                     </div>
                   </TableCell>
                   <TableCell className="text-center opacity-20"><ArrowRightLeft className="w-4 h-4 mx-auto" /></TableCell>
-                  <TableCell className="font-bold text-emerald-600 uppercase italic italic">
+                  <TableCell className="font-bold text-emerald-600 uppercase italic">
                     <div className="flex items-center gap-2">
                          <Landmark className="w-3 h-3 opacity-30" />
                          {d.targetAccount?.name || 'Rekening Tujuan'}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right pr-6 font-black text-[#1e3a5f] tabular-nums text-lg italic">
+                  <TableCell className="text-right font-black text-[#1e3a5f] tabular-nums text-lg italic">
                     <div className="flex items-center justify-end gap-3">
-                         <span>Rp {d.amount.toLocaleString()}</span>
+                         <span>Rp {d.amount?.toLocaleString()}</span>
                          <ArrowRightSquare className="w-4 h-4 text-zinc-200 group-hover:text-[#1e3a5f] transition-colors" />
                     </div>
                   </TableCell>

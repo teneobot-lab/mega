@@ -2,6 +2,8 @@ import express from "express";
 import { prisma } from "../prisma";
 import jwt from "jsonwebtoken";
 
+import * as transactionController from "../controllers/transactionController";
+
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev_only";
 
@@ -24,7 +26,7 @@ router.use(authenticateToken);
 router.get("/receipt", async (req, res) => {
   try {
     const data = await prisma.inventoryTransaction.findMany({
-      where: { type: "RECEIPT" },
+      where: { type: "RECEIPT", isDeleted: false },
       include: { warehouseTo: true, Lines: { include: { item: true } } },
       orderBy: { date: 'desc' }
     });
@@ -34,9 +36,13 @@ router.get("/receipt", async (req, res) => {
   }
 });
 
+router.get("/receipt/:id", transactionController.getGoodsReceipt);
+router.put("/receipt/:id", transactionController.updateGoodsReceipt);
+
 router.post("/receipt", async (req, res) => {
    try {
      const { date, poId, warehouseToId, notes, lines } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
      
      const count = await prisma.inventoryTransaction.count({ where: { type: "RECEIPT" } }) + 1;
      const trNum = `RCV-${count.toString().padStart(4, '0')}`;
@@ -87,7 +93,7 @@ router.post("/receipt", async (req, res) => {
 router.get("/delivery", async (req, res) => {
   try {
     const data = await prisma.inventoryTransaction.findMany({
-      where: { type: "SHIPMENT" },
+      where: { type: "SHIPMENT", isDeleted: false },
       include: { warehouseFrom: true, Lines: { include: { item: true } } },
       orderBy: { date: 'desc' }
     });
@@ -97,9 +103,13 @@ router.get("/delivery", async (req, res) => {
   }
 });
 
+router.get("/delivery/:id", transactionController.getDelivery);
+router.put("/delivery/:id", transactionController.updateDelivery);
+
 router.post("/delivery", async (req, res) => {
    try {
      const { date, soId, warehouseFromId, notes, lines } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
      
      const count = await prisma.inventoryTransaction.count({ where: { type: "SHIPMENT" } }) + 1;
      const trNum = `DO-${count.toString().padStart(4, '0')}`;

@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../components/ui/card";
+import { systemApi } from "../lib/api-services";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,23 +19,14 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to login");
-      }
+      const data = await systemApi.login({ email, password });
       
       login(data.token, data.user);
       localStorage.setItem("user", JSON.stringify(data.user));
       toast.success("Login Berhasil!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to login");
     } finally {
       setLoading(false);
     }
@@ -43,11 +35,10 @@ export default function Login() {
   const handleInitDB = async () => {
     if(!confirm("Anda yakin ingin inisiasi DB? (Hanya untuk setup awal)")) return;
     try {
-      const res = await fetch("/api/setup/init", { method: "POST" });
-      const data = await res.json();
+      const data = await systemApi.initSystem();
       toast.success(data.message || "DB Initialized!");
     } catch (e: any) {
-      toast.error("Gagal init DB");
+      toast.error(e.message || "Gagal init DB");
     }
   }
 

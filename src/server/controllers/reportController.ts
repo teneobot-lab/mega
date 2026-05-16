@@ -87,3 +87,113 @@ export const getCashFlow = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Server error" });
     }
 }
+
+export const getTrialBalance = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const entries = await prisma.journalEntry.groupBy({
+      by: ["accountId"],
+      where: {
+        journal: {
+          date: {
+            gte: startDate ? new Date(startDate as string) : undefined,
+            lte: endDate ? new Date(endDate as string) : undefined
+          }
+        }
+      },
+      _sum: { debit: true, credit: true }
+    });
+    res.json(entries);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to generate trial balance" });
+  }
+};
+
+export const getSalesReport = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const data = await prisma.invoice.findMany({
+      where: {
+        type: "SALES",
+        date: {
+          gte: startDate ? new Date(startDate as string) : undefined,
+          lte: endDate ? new Date(endDate as string) : undefined
+        }
+      },
+      include: { Lines: true, contact: true }, // Used invoice/contact because SalesInvoice doesn't exist, it's Invoice with type="SALES"
+      orderBy: { date: "asc" }
+    });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to generate sales report" });
+  }
+};
+
+export const getPurchaseReport = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const data = await prisma.invoice.findMany({
+      where: {
+        type: "PURCHASE",
+        date: {
+          gte: startDate ? new Date(startDate as string) : undefined,
+          lte: endDate ? new Date(endDate as string) : undefined
+        }
+      },
+      include: { Lines: true, contact: true },
+      orderBy: { date: "asc" }
+    });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to generate purchase report" });
+  }
+};
+
+export const getTaxReport = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const sales = await prisma.invoice.findMany({
+      where: {
+        type: "SALES",
+        date: {
+          gte: startDate ? new Date(startDate as string) : undefined,
+          lte: endDate ? new Date(endDate as string) : undefined
+        }
+      },
+      select: { date: true, taxAmount: true, subTotal: true, contact: true }
+    });
+    const purchases = await prisma.invoice.findMany({
+      where: {
+        type: "PURCHASE",
+        date: {
+          gte: startDate ? new Date(startDate as string) : undefined,
+          lte: endDate ? new Date(endDate as string) : undefined
+        }
+      },
+      select: { date: true, taxAmount: true, subTotal: true, contact: true }
+    });
+    res.json({ sales, purchases });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to generate tax report" });
+  }
+};
+
+export const getStockCard = async (req: Request, res: Response) => {
+  try {
+    const { itemId, startDate, endDate } = req.query;
+    if (!itemId) return res.status(400).json({ message: "itemId is required" });
+    const movements = await prisma.stockCard.findMany({
+      where: {
+        itemId: String(itemId),
+        date: {
+          gte: startDate ? new Date(startDate as string) : undefined,
+          lte: endDate ? new Date(endDate as string) : undefined
+        }
+      },
+      orderBy: { date: "asc" }
+    });
+    res.json(movements);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to generate stock card" });
+  }
+};

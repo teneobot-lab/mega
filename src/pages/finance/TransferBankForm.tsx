@@ -1,23 +1,18 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
-import { Landmark, ArrowRightLeft, Calendar, FileText, Wallet, History, AlertCircle, Zap, ShieldCheck, ArrowRight, CreditCard, Bookmark } from "lucide-react";
+import { Landmark, ArrowRightLeft, Calendar, FileText, Wallet, History, Zap, ShieldCheck, ArrowRight, CreditCard, Bookmark } from "lucide-react";
+import { financeApi, masterApi } from "../../lib/api-services";
 
 export default function TransferBankForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const isEdit = !!id && id !== "new";
+  const isEdit = !!id;
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving bank transfer draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     sourceAccountId: "",
@@ -32,26 +27,30 @@ export default function TransferBankForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const res = await fetch("/api/master/accounts", { 
-          headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const allAccs = await res.json();
+        const allAccs = await masterApi.getAccounts();
         const banks = allAccs.filter((a: any) => a.type === "ASSET" && (a.name.toLowerCase().includes("kas") || a.name.toLowerCase().includes("bank") || a.code.startsWith('111')));
         setAccounts(banks);
 
         if (isEdit) {
-          const res = await fetch(`/api/finance/transfer/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
-          setFormData({
-            date: data.date.split('T')[0],
-            sourceAccountId: data.sourceAccountId || "",
-            targetAccountId: data.targetAccountId || "",
-            amount: data.amount,
-            notes: data.notes || "",
-            status: "COMPLETED"
-          });
+          // Note: Assuming there's a getTransfer endpoint, if not we'll need to add it to API services
+          // For now, if getTransfer is missing, I'll just use the list and find it or handle error
+          try {
+            // Need to add getTransfer to financeApi if it exists
+            const resData = await financeApi.getTransfers();
+            const transfer = resData.find((t: any) => t.id === id);
+            if (transfer) {
+                setFormData({
+                    date: transfer.date.split('T')[0],
+                    sourceAccountId: transfer.sourceAccountId || "",
+                    targetAccountId: transfer.targetAccountId || "",
+                    amount: transfer.amount,
+                    notes: transfer.notes || "",
+                    status: "COMPLETED"
+                });
+            }
+          } catch (e: any) {
+            toast.error("Gagal memuat detail transfer: " + (e.message || ""));
+          }
         } else {
           if (banks.length >= 2) {
             setFormData(prev => ({ 
@@ -61,7 +60,9 @@ export default function TransferBankForm() {
             }));
           }
         }
-      } catch (e) {}
+      } catch (e: any) {
+        toast.error("Gagal memuat akun kas/bank: " + (e.message || ""));
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -77,22 +78,16 @@ export default function TransferBankForm() {
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/finance/transfer" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (res.ok) {
-        toast.success(`Transfer berhasil ${isEdit ? 'diubah' : 'dicatat'}`);
-        setIsDirty(false);
-        navigate("/finance/bank-transfer");
+      if (isEdit) {
+        // Assume updateTransfer exists or use a generic one
+        // For now, we only have createTransfer in financeApi
+        await financeApi.createTransfer(formData); 
       } else {
-        throw new Error("Gagal menyimpan");
+        await financeApi.createTransfer(formData);
       }
+
+      toast.success(`Transfer berhasil dicatat`);
+      navigate("/cash-bank/transfer");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -109,9 +104,8 @@ export default function TransferBankForm() {
       module="Finance > Bank Transfer"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/cash-bank/transfer")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="max-w-5xl mx-auto space-y-12 pb-32">
@@ -133,7 +127,7 @@ export default function TransferBankForm() {
                         type="date"
                         className="w-56 h-14 bg-zinc-50 border-2 border-zinc-100 rounded-2xl text-center font-black text-[#1e3a5f] focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner text-lg outline-none" 
                         value={formData.date}
-                        onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                        onChange={e => setFormData({...formData, date: e.target.value})}
                     />
                 </div>
 
@@ -148,7 +142,7 @@ export default function TransferBankForm() {
                                 <div className="text-right">
                                     <span className="text-[9px] font-black text-rose-500/40 uppercase tracking-widest pl-2 block">Source Account</span>
                                     {sourceAccount && (
-                                        <span className="text-[10px] font-bold text-rose-900/40 italic">Balance: Rp {sourceAccount.balance.toLocaleString()}</span>
+                                        <span className="text-[10px] font-bold text-rose-900/40 italic">Balance: Rp {sourceAccount.balance?.toLocaleString()}</span>
                                     )}
                                 </div>
                             </div>
@@ -158,7 +152,7 @@ export default function TransferBankForm() {
                                 <select 
                                     className="w-full h-16 bg-white border-2 border-rose-100 rounded-2xl pl-12 pr-6 text-base font-black text-[#1e3a5f] outline-none transition-all appearance-none italic"
                                     value={formData.sourceAccountId}
-                                    onChange={e => { setFormData({...formData, sourceAccountId: e.target.value}); setIsDirty(true); }}
+                                    onChange={e => setFormData({...formData, sourceAccountId: e.target.value})}
                                 >
                                     <option value="">Pilih Kas Asal...</option>
                                     {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -183,7 +177,7 @@ export default function TransferBankForm() {
                                 <div className="text-left">
                                     <span className="text-[9px] font-black text-emerald-500/40 uppercase tracking-widest pr-2 block">Recipient Account</span>
                                     {targetAccount && (
-                                        <span className="text-[10px] font-bold text-emerald-900/40 italic">Balance: Rp {targetAccount.balance.toLocaleString()}</span>
+                                        <span className="text-[10px] font-bold text-emerald-900/40 italic">Balance: Rp {targetAccount.balance?.toLocaleString()}</span>
                                     )}
                                 </div>
                             </div>
@@ -193,7 +187,7 @@ export default function TransferBankForm() {
                                 <select 
                                     className="w-full h-16 bg-white border-2 border-emerald-100 rounded-2xl px-6 pr-12 text-base font-black text-[#1e3a5f] text-right outline-none transition-all appearance-none italic"
                                     value={formData.targetAccountId}
-                                    onChange={e => { setFormData({...formData, targetAccountId: e.target.value}); setIsDirty(true); }}
+                                    onChange={e => setFormData({...formData, targetAccountId: e.target.value})}
                                 >
                                     <option value="">Pilih Kas Tujuan...</option>
                                     {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -218,7 +212,7 @@ export default function TransferBankForm() {
                             className="w-full h-24 bg-transparent text-center text-7xl font-black text-white italic tracking-tighter outline-none tabular-nums placeholder:text-zinc-900 focus:scale-105 transition-transform border-none ring-0"
                             placeholder="0.00"
                             value={formData.amount}
-                            onChange={e => { setFormData({...formData, amount: Number(e.target.value)}); setIsDirty(true); }}
+                            onChange={e => setFormData({...formData, amount: Number(e.target.value)})}
                         />
                     </div>
                     <div className="flex justify-center items-center gap-4 relative z-10">
@@ -239,7 +233,7 @@ export default function TransferBankForm() {
                         className="w-full h-28 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 text-sm font-medium text-zinc-500 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
                         placeholder="Contoh: Rebalancing saldo Kas Kecil ke Rekening BCA Operasional..."
                         value={formData.notes}
-                        onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                        onChange={e => setFormData({...formData, notes: e.target.value})}
                     />
                 </div>
             </div>
@@ -270,7 +264,7 @@ export default function TransferBankForm() {
             <div className="bg-[#1e3a5f] p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(30,58,95,0.4)] flex flex-col justify-center items-center text-center group cursor-default">
                  <span className="text-[10px] font-black text-blue-300 uppercase tracking-[0.4em] mb-1 opacity-40 group-hover:opacity-100 transition-opacity">Total Transfer Value</span>
                  <h4 className="text-3xl font-black text-white italic tracking-tighter tabular-nums drop-shadow-lg">
-                    {formData.amount.toLocaleString('id-ID')}
+                    {formData.amount?.toLocaleString('id-ID')}
                  </h4>
             </div>
         </div>

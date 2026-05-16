@@ -5,10 +5,12 @@ import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Printer, FileText } from "lucide-react";
 import { PrintInvoice } from "../../components/PrintInvoice";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
+import { salesApi } from "../../lib/api-services";
 
 type Invoice = {
   id: string;
-  invNumber: string;
+  number: string;
   date: string;
   dueDate: string;
   contact: { name: string, address?: string };
@@ -24,16 +26,15 @@ export default function SalesInvoice() {
   const [data, setData] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [printData, setPrintData] = useState<Invoice | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/sales/invoices", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data Faktur");
+      const resData = await salesApi.getInvoices();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data Faktur");
     } finally {
       setLoading(false);
     }
@@ -44,18 +45,23 @@ export default function SalesInvoice() {
   }, []);
 
   const handlePrint = (inv: Invoice) => {
-    setPrintData(inv);
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    setPrintData({ ...inv, type: "SALES" } as any);
+    setShowPreview(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Printable Area */}
       <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
         <PrintInvoice data={printData} />
       </div>
+
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Faktur Penjualan"
+        data={printData}
+        Component={PrintInvoice}
+      />
 
       <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">
@@ -72,14 +78,14 @@ export default function SalesInvoice() {
 
       <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm">
         <Table>
-          <TableHeader className="bg-zinc-50">
-            <TableRow className="h-12">
-              <TableHead className="text-[10px] font-black uppercase tracking-widest pl-6">Status</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Nomor Faktur</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Tanggal</TableHead>
-              <TableHead className="text-[10px] font-black uppercase tracking-widest">Pelanggan</TableHead>
-              <TableHead className="text-right text-[10px] font-black uppercase tracking-widest pr-6">Total Faktur</TableHead>
-              <TableHead className="text-center w-32 pr-6 text-[10px] font-black uppercase tracking-widest">Aksi</TableHead>
+          <TableHeader className="bg-zinc-50/50">
+            <TableRow>
+              <TableHead className="w-24">Status</TableHead>
+              <TableHead>Nomor Faktur</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Pelanggan</TableHead>
+              <TableHead className="text-right">Total Faktur</TableHead>
+              <TableHead className="text-center w-24">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -90,28 +96,28 @@ export default function SalesInvoice() {
                 <TableCell colSpan={6} className="text-center py-20">
                     <div className="flex flex-col items-center gap-2 opacity-20">
                         <FileText className="h-12 w-12" />
-                        <p className="text-sm font-bold uppercase tracking-widest">Belum ada data Faktur</p>
+                        <p className="text-sm font-bold uppercase tracking-widest text-[#1e3a5f]">Belum ada data Faktur</p>
                     </div>
                 </TableCell>
               </TableRow>
             ) : (
               data.map((inv) => (
-                <TableRow key={inv.id} className="group hover:bg-zinc-50 transition-colors h-14 cursor-pointer" onClick={() => navigate(`/sales/invoice/${inv.id}`)}>
-                  <TableCell className="pl-6">
+                <TableRow key={inv.id} className="cursor-pointer" onClick={() => navigate(`/sales/invoice/${inv.id}`)}>
+                  <TableCell>
                     <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${inv.status === 'UNPAID' ? 'bg-red-100 text-red-700 shadow-sm' : 'bg-green-100 text-green-700 shadow-sm'}`}>
                       {inv.status}
                     </span>
                   </TableCell>
-                  <TableCell className="font-bold text-[#1e3a5f] group-hover:underline ">{inv.invNumber}</TableCell>
+                  <TableCell className="font-bold text-[#1e3a5f] group-hover:underline ">{inv.number}</TableCell>
                   <TableCell className="text-xs font-medium text-zinc-500">{new Date(inv.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</TableCell>
                   <TableCell className="text-sm font-bold text-zinc-700">{inv.contact?.name}</TableCell>
-                  <TableCell className="text-right font-black text-[#1e3a5f] pr-6">Rp {inv.total.toLocaleString()}</TableCell>
-                  <TableCell className="text-center pr-6" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="text-right font-black text-[#1e3a5f]">Rp {inv.total?.toLocaleString()}</TableCell>
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-1">
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            className="h-8 w-8 p-0 text-zinc-400 hover:bg-zinc-100 hover:text-[#1e3a5f] transition-colors rounded-full"
                             onClick={() => handlePrint(inv)}
                         >
                             <Printer className="h-4 w-4" />

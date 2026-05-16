@@ -1,22 +1,22 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
 import { ShoppingCart, Calendar, User, FileText, BadgeCheck } from "lucide-react";
+import { salesApi, masterApi } from "../../lib/api-services";
 
 export default function SalesOrderForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm();
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     customerId: "",
     notes: "",
     status: "DRAFT"
@@ -30,27 +30,22 @@ export default function SalesOrderForm() {
     // Load dependencies
     const loadData = async () => {
       try {
-        const [custRes, itmRes] = await Promise.all([
-          fetch("/api/master/contacts?type=CUSTOMER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [custs, itms] = await Promise.all([
+          masterApi.getContacts("CUSTOMER"),
+          masterApi.getItems()
         ]);
-        const custs = await custRes.json();
-        const itms = await itmRes.json();
         setCustomers(custs);
         setAvailableItems(itms);
 
         if (isEdit) {
-          const res = await fetch(`/api/sales/orders/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await salesApi.getOrder(id!);
           setFormData({
-            date: data.date.split('T')[0],
+            date: data.date?.split('T')[0],
             customerId: data.customerId,
             notes: data.notes || "",
             status: data.status
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -63,7 +58,9 @@ export default function SalesOrderForm() {
         } else {
            if(custs.length > 0) setFormData(prev => ({...prev, customerId: custs[0].id}));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data pendukung");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -83,22 +80,14 @@ export default function SalesOrderForm() {
           }))
       };
 
-      const res = await fetch("/api/sales/orders" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        toast.success(`Pesanan Penjualan berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/sales/so");
+      if (isEdit) {
+        await salesApi.updateOrder(id!, payload);
       } else {
-        throw new Error("Gagal menyimpan");
+        await salesApi.createOrder(payload);
       }
+
+      toast.success(`Pesanan Penjualan berhasil disimpan`);
+      navigate("/sales/so");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -112,7 +101,7 @@ export default function SalesOrderForm() {
       module="Penjualan > Sales Order"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/sales/so")}
       isSaving={isSaving}
       isEdit={isEdit}
     >

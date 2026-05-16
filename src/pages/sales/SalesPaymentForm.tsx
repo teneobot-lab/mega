@@ -1,23 +1,18 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Wallet, Calendar, FileText, Landmark, Search, History, Users, ArrowRight, ShieldCheck, CreditCard, ChevronRight, Zap, Info, ArrowUpRight } from "lucide-react";
+import { salesApi, masterApi } from "../../lib/api-services";
 
 export default function SalesPaymentForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving sales payment transaction...");
-    }
-  });
+  const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -35,12 +30,10 @@ export default function SalesPaymentForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [invRes, accRes] = await Promise.all([
-          fetch("/api/sales/invoices", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/accounts", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
+        const [allInvs, allAccs] = await Promise.all([
+          salesApi.getInvoices(),
+          masterApi.getAccounts(),
         ]);
-        const allInvs = await invRes.json();
-        const allAccs = await accRes.json();
         
         const unpaidInvs = allInvs.filter((i: any) => i.balance > 0 || i.id === formData.invoiceId);
         const cashBankAccs = allAccs.filter((a: any) => a.type === "ASSET" && (a.name.toLowerCase().includes("kas") || a.name.toLowerCase().includes("bank") || a.code.startsWith('111')));
@@ -49,10 +42,7 @@ export default function SalesPaymentForm() {
         setAccounts(cashBankAccs);
 
         if (isEdit) {
-          const res = await fetch(`/api/sales/payments/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await salesApi.getPayment(id!);
           setFormData({
             date: data.date.split('T')[0],
             contactId: data.contactId,
@@ -73,7 +63,9 @@ export default function SalesPaymentForm() {
           }
           if (cashBankAccs.length > 0) setFormData(prev => ({ ...prev, accountId: cashBankAccs[0].id }));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -87,7 +79,6 @@ export default function SalesPaymentForm() {
         contactId: selected.contactId,
         amount: selected.balance
       });
-      setIsDirty(true);
     }
   };
 
@@ -98,24 +89,16 @@ export default function SalesPaymentForm() {
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/sales/payments" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (res.ok) {
-        toast.success(`Penerimaan piutang berhasil ${isEdit ? 'diperbarui' : 'finalized'}`);
-        setIsDirty(false);
-        navigate("/sales/payment");
+      if (isEdit) {
+        await salesApi.updatePayment(id!, formData);
       } else {
-        throw new Error("Gagal menyimpan transaksi pembayaran");
+        await salesApi.createPayment(formData);
       }
+
+      toast.success(`Penerimaan piutang berhasil ${isEdit ? 'diperbarui' : 'finalized'}`);
+      navigate("/sales/payment");
     } catch (e: any) {
-      toast.error(e.message || "Kesalahan transmisi jaringan ke server");
+      toast.error(e.message || "Gagal menyimpan transaksi pembayaran");
     } finally {
       setIsSaving(false);
     }
@@ -129,9 +112,8 @@ export default function SalesPaymentForm() {
       module="Sales > Sales Payment Entry"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/sales/payment")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="max-w-6xl mx-auto space-y-12 pb-32">
@@ -223,7 +205,7 @@ export default function SalesPaymentForm() {
                                 <select 
                                     className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] pl-16 pr-8 text-lg font-black text-[#1e3a5f] outline-none transition-all appearance-none italic focus:bg-white shadow-inner"
                                     value={formData.accountId}
-                                    onChange={e => { setFormData({...formData, accountId: e.target.value}); setIsDirty(true); }}
+                                    onChange={e => { setFormData({...formData, accountId: e.target.value}); }}
                                 >
                                     {accounts.map(a => <option key={a.id} value={a.id}>{a.code} - {a.name.toUpperCase()}</option>)}
                                 </select>
@@ -238,7 +220,7 @@ export default function SalesPaymentForm() {
                                 className="w-full h-28 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 text-sm font-medium text-zinc-500 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
                                 placeholder="Misal: Pelunasan sisa bayar (70%) via Transfer BCA operasional..."
                                 value={formData.notes}
-                                onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                                onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                             />
                         </div>
                     </div>
@@ -258,7 +240,7 @@ export default function SalesPaymentForm() {
                             type="date"
                             className="bg-white/10 border-2 border-white/5 h-16 text-xl font-black text-white focus:bg-white/20 transition-all rounded-[1.5rem] px-8 outline-none focus:ring-0" 
                             value={formData.date}
-                            onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                            onChange={e => { setFormData({...formData, date: e.target.value}); }}
                         />
                     </div>
 
@@ -273,7 +255,7 @@ export default function SalesPaymentForm() {
                                 className="w-full bg-transparent border-none p-0 pl-16 h-20 text-7xl font-black italic tracking-tighter focus:ring-0 text-white tabular-nums outline-none placeholder:text-white/10"
                                 placeholder="0"
                                 value={formData.amount}
-                                onChange={e => { setFormData({...formData, amount: Number(e.target.value)}); setIsDirty(true); }}
+                                onChange={e => { setFormData({...formData, amount: Number(e.target.value)}); }}
                             />
                         </div>
                     </div>

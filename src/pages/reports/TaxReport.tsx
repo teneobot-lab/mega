@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { toast } from "sonner";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
+import { reportsApi } from "../../lib/api-services";
 
 type TaxData = {
   date: string;
@@ -25,14 +26,10 @@ export default function TaxReport() {
   const fetchData = async () => {
     setLoading(true);
     try {
-        const res = await fetch(`/api/reports/tax?type=${tab}&startDate=${startDate}&endDate=${endDate}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const resData = await res.json();
-        if(res.ok) setData(resData);
-        else toast.error("Gagal mengambil data");
-    } catch(e) {
-        toast.error("Gagal mengambil data");
+        const resData = await reportsApi.getTax(startDate, endDate);
+        setData(resData);
+    } catch(e: any) {
+        toast.error(e.message || "Gagal mengambil data laporan pajak");
     } finally {
         setLoading(false);
     }

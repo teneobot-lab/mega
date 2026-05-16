@@ -83,11 +83,12 @@ model Account {
   updatedAt     DateTime @updatedAt
 
   JournalEntries JournalEntry[]
+  TaxAccounts    Tax[]    @relation("TaxAccount")
 }
 
 model Contact {
   id            String   @id @default(uuid())
-  type          String   // CUSTOMER, SUPPLIER, EMPLOYEE (Salesman)
+  type          String   // CUSTOMER, SUPPLIER, SALESMAN, EMPLOYEE
   code          String   @unique
   name          String
   email         String?
@@ -95,6 +96,9 @@ model Contact {
   address       String?
   creditLimit   Float?   @default(0)
   termsDays     Int?     @default(0) // Termin pembayaran dalam hari
+  commission    Float    @default(0) // For Salesman
+  target        Float    @default(0) // For Salesman
+  isActive      Boolean  @default(true)
   balance       Float    @default(0) // AR/AP Balance
   isDeleted     Boolean  @default(false)
   createdAt     DateTime @default(now())
@@ -132,7 +136,9 @@ model Item {
 
 model ItemCategory {
   id            String   @id @default(uuid())
-  name          String   @unique
+  code          String   @unique
+  name          String
+  description   String?
   isDeleted     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -182,6 +188,7 @@ model Department {
   id            String   @id @default(uuid())
   code          String   @unique
   name          String
+  description   String?
   isDeleted     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -212,6 +219,9 @@ model Tax {
   code          String   @unique
   name          String   // e.g., PPN 11%
   rate          Float    // e.g., 0.11
+  type          String   @default("PPN") // PPN, PPH
+  accountId     String?
+  account       Account? @relation("TaxAccount", fields: [accountId], references: [id])
   isDeleted     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -231,6 +241,15 @@ model Currency {
   updatedAt     DateTime @updatedAt
 
   Accounts      Account[]
+  Rates         CurrencyRateHistory[]
+}
+
+model CurrencyRateHistory {
+  id            String   @id @default(uuid())
+  currencyId    String
+  currency      Currency @relation(fields: [currencyId], references: [id])
+  rate          Float
+  date          DateTime @default(now())
 }
 
 // ==========================================

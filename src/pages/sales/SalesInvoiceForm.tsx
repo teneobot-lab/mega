@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Search, Plus, User, Receipt, Calendar, CreditCard, ChevronDown, History, MessageSquare, Tag } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -10,16 +10,15 @@ import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
+import { salesApi, masterApi } from "../../lib/api-services";
 
 export default function SalesInvoiceForm() {
   const navigate = useNavigate();
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving sales invoice draft...");
-    }
-  });
+  const { id } = useParams();
+  const isEdit = !!id && id !== "new";
   
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [status, setStatus] = useState<"DRAFT" | "POSTED" | "CANCELLED">("DRAFT");
   const [invoiceNumber, setInvoiceNumber] = useState("SI." + format(new Date(), "yyyyMMdd") + ".AUTO");
   const [invoiceDate, setInvoiceDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -34,20 +33,39 @@ export default function SalesInvoiceForm() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [custRes, itmRes] = await Promise.all([
-          fetch("/api/master/contacts?type=CUSTOMER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [custData, itmData] = await Promise.all([
+          masterApi.getContacts("CUSTOMER"),
+          masterApi.getItems()
         ]);
-        if(custRes.ok) {
-            const data = await custRes.json();
-            setCustomers(data);
-            if (data.length > 0) setContactId(data[0].id);
+        setCustomers(custData);
+        if (custData.length > 0 && !contactId) setContactId(custData[0].id);
+        setAvailableItems(itmData);
+
+        if (isEdit) {
+            const data = await salesApi.getInvoice(id!);
+            setInvoiceNumber(data.number);
+            setInvoiceDate(data.date?.split('T')[0]);
+            setDueDate(data.dueDate?.split('T')[0] || data.date?.split('T')[0]);
+            setContactId(data.contactId);
+            setMemo(data.notes || "");
+            setStatus(data.status);
+            setCartItems((data.Lines || []).map((l: any) => ({
+                id: l.id,
+                itemId: l.itemId,
+                name: l.item?.name || 'Item',
+                code: l.item?.code || '',
+                uom: l.item?.baseUom?.name || 'Unit',
+                qty: l.qty,
+                price: l.price,
+                total: l.qty * l.price
+            })));
         }
-        if(itmRes.ok) setAvailableItems(await itmRes.json());
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data");
+      }
     };
     fetchData();
-  }, []);
+  }, [id, isEdit]);
 
   const calculateSubtotal = () => {
     return cartItems.reduce((acc, curr) => acc + (curr.total || 0), 0);
@@ -71,24 +89,16 @@ export default function SalesInvoiceForm() {
           }))
       };
 
-      const res = await fetch("/api/sales/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        toast.success("Faktur Penjualan berhasil disimpan");
-        setIsDirty(false);
-        navigate("/sales/invoice");
+      if (isEdit) {
+          toast.info("Update invoice belum diimplementasikan di API service");
       } else {
-        throw new Error("Gagal menyimpan");
+          await salesApi.createInvoice(payload);
       }
-    } catch (e) {
-      toast.error("Gagal menyimpan ke server");
+
+      toast.success("Faktur Penjualan berhasil disimpan");
+      navigate("/sales/invoice");
+    } catch (e: any) {
+      toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
       setIsSaving(false);
     }
@@ -104,10 +114,9 @@ export default function SalesInvoiceForm() {
       module="Penjualan > Sales Invoice"
       status={status}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/sales/invoice")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
-      isEdit={false}
+      isEdit={isEdit}
     >
       <div className="p-2 space-y-2">
         <div className="ac-form-header grid grid-cols-4 gap-4">

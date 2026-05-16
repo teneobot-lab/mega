@@ -1,26 +1,21 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
 import { RotateCw, Box, Calendar, History, Trash2, Warehouse, Users, ReceiptText, Undo2, ArrowUpRight } from "lucide-react";
+import { salesApi, masterApi } from "../../lib/api-services";
 
 export default function SalesReturnForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving sales return draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     contactId: "",
     warehouseId: "",
     notes: "",
@@ -35,32 +30,26 @@ export default function SalesReturnForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [wRes, cusRes, itmRes] = await Promise.all([
-          fetch("/api/master/warehouses", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/contacts?type=CUSTOMER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [w, c, itm] = await Promise.all([
+          masterApi.getWarehouses(),
+          masterApi.getContacts("CUSTOMER"),
+          masterApi.getItems()
         ]);
-        const w = await wRes.json();
-        const c = await cusRes.json();
-        const itm = await itmRes.json();
         
         setWarehouses(w);
         setCustomers(c);
         setAvailableItems(itm);
 
         if (isEdit) {
-          const res = await fetch(`/api/sales/returns/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await salesApi.getReturn(id!);
           setFormData({
-            date: data.date.split('T')[0],
+            date: data.date?.split('T')[0],
             contactId: data.contactId,
             warehouseId: data.warehouseId || (w.length > 0 ? w[0].id : ""),
             notes: data.notes || "",
             status: "RETURNED"
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -74,7 +63,9 @@ export default function SalesReturnForm() {
           if (c.length > 0) setFormData(prev => ({ ...prev, contactId: c[0].id }));
           if (w.length > 0) setFormData(prev => ({ ...prev, warehouseId: w[0].id }));
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data pendukung");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -91,22 +82,14 @@ export default function SalesReturnForm() {
           lines: cartItems.map(it => ({ itemId: it.itemId, qty: it.qty, price: it.price }))
       };
 
-      const res = await fetch("/api/sales/returns" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        toast.success(`Retur Penjualan berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/sales/return");
+      if (isEdit) {
+        await salesApi.updateReturn(id!, payload);
       } else {
-        throw new Error("Gagal menyimpan");
+        await salesApi.createReturn(payload);
       }
+
+      toast.success(`Retur Penjualan berhasil disimpan`);
+      navigate("/sales/return");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -122,9 +105,8 @@ export default function SalesReturnForm() {
       module="Penjualan > Sales Return"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/sales/return")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
       isEdit={isEdit}
     >
       <div className="max-w-6xl mx-auto space-y-8 pb-32">
@@ -141,7 +123,7 @@ export default function SalesReturnForm() {
                 <select 
                     className="w-full h-14 bg-blue-50/20 border-2 border-blue-100 rounded-2xl px-6 text-sm font-black text-[#1e3a5f] focus:bg-white outline-none transition-all appearance-none italic"
                     value={formData.contactId}
-                    onChange={e => { setFormData({...formData, contactId: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, contactId: e.target.value}); }}
                 >
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -154,7 +136,7 @@ export default function SalesReturnForm() {
                 <select 
                     className="w-full h-14 bg-indigo-50/20 border-2 border-indigo-100 rounded-2xl px-6 text-sm font-black text-indigo-900 focus:bg-white outline-none transition-all appearance-none italic"
                     value={formData.warehouseId}
-                    onChange={e => { setFormData({...formData, warehouseId: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, warehouseId: e.target.value}); }}
                 >
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
@@ -168,7 +150,7 @@ export default function SalesReturnForm() {
                     type="date"
                     className="h-14 bg-zinc-50 border-2 border-zinc-100 rounded-2xl px-6 text-sm font-black text-[#1e3a5f]" 
                     value={formData.date}
-                    onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, date: e.target.value}); }}
                 />
             </div>
         </div>
@@ -192,7 +174,6 @@ export default function SalesReturnForm() {
                 showPrice={true}
                 onChange={(items) => {
                     setCartItems(items);
-                    setIsDirty(true);
                 }}
             />
         </div>
@@ -207,7 +188,7 @@ export default function SalesReturnForm() {
                     className="w-full h-32 bg-white border border-zinc-200 rounded-2xl p-5 text-sm font-medium focus:ring-4 focus:ring-zinc-100 outline-none transition-all italic placeholder:text-zinc-300"
                     placeholder="Wajib diisi: Jelaskan mengapa barang ini diretur (misal: Rusak dalam pengiriman, salah spek, atau cacat pabrik)..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
+                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                 />
             </div>
 

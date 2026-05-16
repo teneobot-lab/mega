@@ -2,22 +2,38 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Plus, BookOpen, Clock, Tag } from "lucide-react";
+import { Plus, BookOpen, Clock, Tag, Printer } from "lucide-react";
+import { accountingApi } from "../../lib/api-services";
+import { PrintVoucher } from "../../components/PrintVoucher";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
 
 export default function GeneralJournal() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [printData, setPrintData] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
+
+  const handlePrint = (journal: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPrintData({
+        ...journal,
+        payNumber: journal.journalNumber,
+        type: "MEMO",
+        Lines: journal.Entries.map((e: any) => ({
+            ...e,
+            notes: journal.description
+        }))
+    });
+    setShowPreview(true);
+  };
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/accounting/journals", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data jurnal");
+      const resData = await accountingApi.getJournals();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data jurnal");
     } finally {
       setLoading(false);
     }
@@ -29,7 +45,19 @@ export default function GeneralJournal() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
+        <PrintVoucher data={printData} />
+      </div>
+
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Voucher Jurnal Umum"
+        data={printData}
+        Component={PrintVoucher}
+      />
+
+      <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic">Jurnal Umum</h1>
             <p className="text-xs text-zinc-500 font-medium">Catatan transaksi akuntansi manual dan otomatis</p>
@@ -75,15 +103,25 @@ export default function GeneralJournal() {
                         </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Keterangan</span>
-                    <span className="font-bold text-[#1e3a5f] text-sm">{journal.description}</span>
-                    {journal.reference && (
-                        <div className="flex items-center justify-end gap-1 text-[10px] text-blue-500 font-bold uppercase mt-1">
-                            <Tag className="w-2.5 h-2.5" />
-                            Ref: {journal.reference}
-                        </div>
-                    )}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest block">Keterangan</span>
+                      <span className="font-bold text-[#1e3a5f] text-sm">{journal.description}</span>
+                      {journal.reference && (
+                          <div className="flex items-center justify-end gap-1 text-[10px] text-blue-500 font-bold uppercase mt-1">
+                              <Tag className="w-2.5 h-2.5" />
+                              Ref: {journal.reference}
+                          </div>
+                      )}
+                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-zinc-300 hover:text-[#1e3a5f] rounded-full"
+                        onClick={(e) => handlePrint(journal, e)}
+                    >
+                        <Printer className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
                 <div className="overflow-x-auto">

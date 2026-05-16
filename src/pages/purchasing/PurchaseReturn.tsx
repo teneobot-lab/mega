@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { RotateCcw, Plus, Calendar, Box, Warehouse, ArrowRightSquare } from "lucide-react";
+import { purchasingApi } from "../../lib/api-services";
 
 export default function PurchaseReturn() {
   const [data, setData] = useState<any[]>([]);
@@ -12,12 +13,10 @@ export default function PurchaseReturn() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/purchasing/returns", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data retur pembelian");
+      const resData = await purchasingApi.getReturns();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data retur pembelian");
     } finally {
       setLoading(false);
     }

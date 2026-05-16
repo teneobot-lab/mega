@@ -13,6 +13,8 @@ import {
 } from "../../components/ui/table";
 import { exportToExcel, exportToPDF } from "../../lib/export-utils";
 import { useNavigate } from "react-router-dom";
+import { reportsApi } from "../../lib/api-services";
+import { toast } from "sonner";
 
 export default function APAging() {
   const [data, setData] = useState<any[]>([]);
@@ -21,11 +23,9 @@ export default function APAging() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/purchasing/aging-ap", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-    })
-    .then(res => res.json())
+    reportsApi.getApAging(new Date().toISOString().split('T')[0])
     .then(setData)
+    .catch(e => toast.error(e.message || "Gagal mengambil data Aging AP"))
     .finally(() => setLoading(false));
   }, []);
 

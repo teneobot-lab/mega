@@ -6,6 +6,7 @@ import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
 import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
+import { apiFetch } from "../../lib/api";
 import { ShoppingBag, Calendar, Users, FileText, BadgeInfo } from "lucide-react";
 
 export default function PurchaseOrderForm() {
@@ -16,7 +17,7 @@ export default function PurchaseOrderForm() {
   const { isSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm();
   
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString()?.split('T')[0],
     supplierId: "",
     notes: "",
     status: "DRAFT"
@@ -30,27 +31,22 @@ export default function PurchaseOrderForm() {
     // Load dependencies
     const loadData = async () => {
       try {
-        const [supRes, itmRes] = await Promise.all([
-          fetch("/api/master/contacts?type=SUPPLIER", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }}),
-          fetch("/api/master/items", { headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }})
+        const [sups, itms] = await Promise.all([
+          apiFetch("/api/master/contacts?type=SUPPLIER"),
+          apiFetch("/api/master/items")
         ]);
-        const sups = await supRes.json();
-        const itms = await itmRes.json();
         setSuppliers(sups);
         setAvailableItems(itms);
 
         if (isEdit) {
-          const res = await fetch(`/api/purchasing/orders/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await apiFetch(`/api/purchasing/orders/${id}`);
           setFormData({
-            date: data.date.split('T')[0],
+            date: data.date?.split('T')[0],
             supplierId: data.supplierId,
             notes: data.notes || "",
             status: data.status
           });
-          setCartItems(data.Lines.map((l: any) => ({
+          setCartItems((data.Lines || []).map((l: any) => ({
             id: l.id,
             itemId: l.itemId,
             name: l.item?.name || 'Item',
@@ -63,7 +59,9 @@ export default function PurchaseOrderForm() {
         } else {
            if(sups.length > 0) setFormData(prev => ({...prev, supplierId: sups[0].id}));
         }
-      } catch (e) {}
+      } catch (e: any) {
+        toast.error(e.message || "Gagal memuat data");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -83,22 +81,14 @@ export default function PurchaseOrderForm() {
           }))
       };
 
-      const res = await fetch("/api/purchasing/orders" + (isEdit ? `/${id}` : ""), {
+      await apiFetch("/api/purchasing/orders" + (isEdit ? `/${id}` : ""), {
         method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        toast.success(`Pesanan Pembelian berhasil disimpan`);
-        setIsDirty(false);
-        navigate("/purchasing/po");
-      } else {
-        throw new Error("Gagal menyimpan");
-      }
+      toast.success(`Pesanan Pembelian berhasil disimpan`);
+      setIsDirty(false);
+      navigate("/purchasing/po");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {

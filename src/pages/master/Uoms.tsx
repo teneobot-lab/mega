@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Scale } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Uom = {
   id: string;
@@ -18,13 +19,10 @@ export default function Uoms() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/master/uom", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const resData = await res.json();
-      if(res.ok) setData(resData);
-    } catch (e) {
-      toast.error("Gagal mengambil data satuan");
+      const resData = await masterApi.getUoms();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data satuan");
     } finally {
       setLoading(false);
     }

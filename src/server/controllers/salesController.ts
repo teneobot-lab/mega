@@ -24,6 +24,7 @@ export const getInvoices = async (req: Request, res: Response) => {
 export const createInvoice = async (req: Request, res: Response) => {
   try {
     const { date, dueDate, soId, contactId, notes, lines } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
     const count = await prisma.invoice.count({ where: { type: "SALES" } }) + 1;
     const invNumber = `SI-${count.toString().padStart(4, '0')}`;
 
@@ -142,6 +143,7 @@ export const getOrders = async (req: Request, res: Response) => {
 export const createOrder = async (req: Request, res: Response) => {
   try {
     const { date, customerId, notes, lines } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
     const count = await prisma.salesOrder.count() + 1;
     const soNumber = `SO-${count.toString().padStart(4, '0')}`;
 
@@ -171,3 +173,127 @@ export const createOrder = async (req: Request, res: Response) => {
     res.status(400).json({ message: "Gagal membuat Sales Order", error: error.message });
   }
 };
+
+export const getOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { Lines: true, customer: true }
+    });
+    if (!data) return res.status(404).json({ message: "Order not found" });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch order" });
+  }
+};
+
+export const updateOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { date, customerId, notes, lines } = req.body;
+    if (!lines || !Array.isArray(lines)) return res.status(400).json({ message: "Invalid lines array" });
+    const updated = await prisma.salesOrder.update({
+      where: { id },
+      data: { date: new Date(date), customerId, notes }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update order" });
+  }
+};
+
+export const approveOrder = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.salesOrder.update({
+      where: { id },
+      data: { status: "APPROVED" }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to approve order" });
+  }
+};
+
+export const getInvoice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await prisma.invoice.findUnique({
+      where: { id },
+      include: { Lines: true, contact: true }
+    });
+    if (!data) return res.status(404).json({ message: "Invoice not found" });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch invoice" });
+  }
+};
+
+export const updateInvoice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: req.body
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update invoice" });
+  }
+};
+
+export const getPayment = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await prisma.payment.findUnique({
+      where: { id },
+      include: { Lines: true, contact: true }
+    });
+    if (!data) return res.status(404).json({ message: "Payment not found" });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch payment" });
+  }
+};
+
+export const updatePayment = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.payment.update({
+      where: { id },
+      data: req.body
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update payment" });
+  }
+};
+
+export const getReturn = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const data = await prisma.invoice.findUnique({
+      where: { id },
+      include: { Lines: true, contact: true }
+    });
+    if (!data) return res.status(404).json({ message: "Return not found" });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch return" });
+  }
+};
+
+export const updateReturn = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.invoice.update({
+      where: { id },
+      data: req.body
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update return" });
+  }
+};
+

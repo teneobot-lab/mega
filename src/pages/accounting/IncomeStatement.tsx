@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/input";
 import { Printer, FileDown, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { exportToPDF } from "../../lib/export-utils";
+import { accountingApi } from "../../lib/api-services";
 
 type Account = { id: string, code: string, name: string, balance: number };
 type IncomeData = {
@@ -26,13 +27,10 @@ export default function IncomeStatement() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/accounting/income-statement?startDate=${startDate}&endDate=${endDate}`, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(!res.ok) throw new Error("Gagal mengambil data");
-      setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data Laba Rugi");
+      const resData = await accountingApi.getIncomeStatement(startDate, endDate);
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data Laba Rugi");
       console.error(e);
     } finally {
       setLoading(false);
@@ -105,11 +103,11 @@ export default function IncomeStatement() {
                     <div className="bg-zinc-50 px-4 py-1 border-b text-[11px] font-bold uppercase tracking-tighter text-[#1e3a5f]">PENDAPATAN</div>
                     <Table className="text-xs">
                        <TableBody>
-                          {data.revenues.map((a: any) => (
+                          {(data?.revenues || []).map((a: any) => (
                              <TableRow key={a.id} className="h-7 border-0">
                                 <TableCell className="py-1 font-mono text-[11px] text-zinc-600 w-24 pl-4">{a.code}</TableCell>
                                 <TableCell className="py-1">{a.name}</TableCell>
-                                <TableCell className="py-1 text-right font-medium pr-4">Rp {a.balance.toLocaleString()}</TableCell>
+                                <TableCell className="py-1 text-right font-medium pr-4">Rp {(a.balance || 0).toLocaleString()}</TableCell>
                              </TableRow>
                           ))}
                           <TableRow className="h-9 font-bold bg-blue-50/30 border-t">
@@ -125,11 +123,11 @@ export default function IncomeStatement() {
                     <div className="bg-zinc-50 px-4 py-1 border-b text-[11px] font-bold uppercase tracking-tighter text-red-700">BEBAN / BIAYA</div>
                     <Table className="text-xs">
                        <TableBody>
-                          {data.expenses.map((a: any) => (
+                          {(data?.expenses || []).map((a: any) => (
                              <TableRow key={a.id} className="h-7 border-0">
                                 <TableCell className="py-1 font-mono text-[11px] text-zinc-600 w-24 pl-4">{a.code}</TableCell>
                                 <TableCell className="py-1">{a.name}</TableCell>
-                                <TableCell className="py-1 text-right font-medium pr-4">Rp {a.balance.toLocaleString()}</TableCell>
+                                <TableCell className="py-1 text-right font-medium pr-4">Rp {(a.balance || 0).toLocaleString()}</TableCell>
                              </TableRow>
                           ))}
                           <TableRow className="h-9 font-bold bg-red-50/30 border-t">

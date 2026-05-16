@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableRow, TableHeader, TableHead } from ".
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { exportToPDF } from "../../lib/export-utils";
+import { reportsApi } from "../../lib/api-services";
 
 type CashFlowSection = {
     name: string;
@@ -24,16 +25,10 @@ export default function CashFlow() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/reports/cash-flow", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-    })
-    .then(res => {
-        if(!res.ok) throw new Error("Gagal mengambil data");
-        return res.json();
-    })
+    reportsApi.getCashFlow(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], new Date().toISOString().split('T')[0])
     .then(setData)
     .catch(e => {
-        toast.error("Gagal mengambil data Arus Kas");
+        toast.error(e.message || "Gagal mengambil data Arus Kas");
         console.error(e);
     })
     .finally(() => setLoading(false));

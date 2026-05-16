@@ -3,21 +3,34 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Truck, Plus, Calendar, ArrowRightSquare, Warehouse, FileText } from "lucide-react";
+import { Truck, Plus, Calendar, ArrowRightSquare, Warehouse, FileText, Printer } from "lucide-react";
+import { salesApi } from "../../lib/api-services";
+import { PrintInvoice } from "../../components/PrintInvoice";
+import { PrintPreviewDialog } from "../../components/PrintPreviewDialog";
 
 export default function SalesDelivery() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [printData, setPrintData] = useState<any>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
+
+  const handlePrint = (d: any) => {
+    setPrintData({
+      ...d,
+      type: "SALES",
+      invNumber: d.transNumber,
+      contact: d.salesOrder?.contact || { name: "N/A" }
+    });
+    setShowPreview(true);
+  };
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/transactions/delivery", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data pengiriman");
+      const resData = await salesApi.getDeliveries();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data pengiriman");
     } finally {
       setLoading(false);
     }
@@ -29,7 +42,19 @@ export default function SalesDelivery() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="hidden print:block fixed inset-0 z-[9999] bg-white">
+        <PrintInvoice data={printData} title="BUKTI PENGIRIMAN BARANG" />
+      </div>
+
+      <PrintPreviewDialog 
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        title="Bukti Pengiriman Barang"
+        data={printData}
+        Component={(props) => <PrintInvoice {...props} title="BUKTI PENGIRIMAN BARANG" />}
+      />
+
+      <div className="flex items-center justify-between print:hidden">
         <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-black tracking-tighter text-[#1e3a5f] uppercase italic italic">Pengiriman Barang</h1>
             <p className="text-xs text-zinc-500 font-medium tracking-tight uppercase italic opacity-70 tracking-widest leading-none tracking-widest">Manajemen pengeluaran barang pesanan (Delivery Order)</p>
@@ -96,13 +121,23 @@ export default function SalesDelivery() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center pr-6">
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 w-8 p-0 text-zinc-300 group-hover:text-[#1e3a5f] rounded-full"
-                    >
-                        <ArrowRightSquare className="h-5 w-5" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-zinc-300 hover:text-[#1e3a5f] rounded-full"
+                            onClick={(e) => { e.stopPropagation(); handlePrint(d); }}
+                        >
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 text-zinc-300 group-hover:text-[#1e3a5f] rounded-full"
+                        >
+                            <ArrowRightSquare className="h-5 w-5" />
+                        </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

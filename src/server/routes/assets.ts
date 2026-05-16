@@ -9,6 +9,9 @@ router.use(authenticateToken);
 // GET ALL ASSETS
 router.get("/", assetController.getAssets);
 
+router.get("/:id", assetController.getAsset);
+router.put("/:id", assetController.updateAsset);
+
 // CREATE ASSET
 router.post("/", assetController.createAsset);
 

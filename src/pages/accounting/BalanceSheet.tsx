@@ -5,8 +5,8 @@ import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
 import { Printer, FileDown, ChevronRight } from "lucide-react";
-import { cn } from "../../lib/utils";
 import { exportToPDF } from "../../lib/export-utils";
+import { accountingApi } from "../../lib/api-services";
 
 type Account = { id: string, code: string, name: string, balance: number };
 type BalanceData = {
@@ -27,13 +27,10 @@ export default function BalanceSheet() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/accounting/balance-sheet?date=${date}`, {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(!res.ok) throw new Error("Gagal mengambil data");
-      setData(await res.json());
-    } catch (e) {
-      toast.error("Gagal mengambil data Neraca");
+      const resData = await accountingApi.getBalanceSheet(date);
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data Neraca");
       console.error(e);
     } finally {
       setLoading(false);
@@ -103,11 +100,11 @@ export default function BalanceSheet() {
                      <div className="bg-zinc-50 px-4 py-1 border-b text-[11px] font-bold uppercase tracking-tighter text-zinc-600">AKTIVA</div>
                      <Table className="text-xs">
                         <TableBody>
-                           {data.assets.map((a: any) => (
+                           {(data?.assets || []).map((a: any) => (
                               <TableRow key={a.id} className="h-7 hover:bg-zinc-50 border-0">
                                  <TableCell className="py-1 font-mono text-[11px] text-blue-700 w-24">{a.code}</TableCell>
                                  <TableCell className="py-1">{a.name}</TableCell>
-                                 <TableCell className="py-1 text-right font-medium">Rp {a.balance.toLocaleString()}</TableCell>
+                                 <TableCell className="py-1 text-right font-medium">Rp {(a.balance || 0).toLocaleString()}</TableCell>
                               </TableRow>
                            ))}
                            <TableRow className="h-10 bg-[#1e3a5f]/5 border-t-2 border-[#1e3a5f]">
@@ -126,11 +123,11 @@ export default function BalanceSheet() {
                      <Table className="text-xs border-b">
                         <TableBody>
                            <TableRow className="h-7 bg-zinc-50/50"><TableCell colSpan={3} className="py-1 italic font-bold">KEWAJIBAN</TableCell></TableRow>
-                           {data.liabilities.map((a: any) => (
+                           {(data?.liabilities || []).map((a: any) => (
                               <TableRow key={a.id} className="h-7 hover:bg-zinc-50 border-0">
                                  <TableCell className="py-1 font-mono text-[11px] text-red-700 w-24">{a.code}</TableCell>
                                  <TableCell className="py-1">{a.name}</TableCell>
-                                 <TableCell className="py-1 text-right font-medium">Rp {a.balance.toLocaleString()}</TableCell>
+                                 <TableCell className="py-1 text-right font-medium">Rp {(a.balance || 0).toLocaleString()}</TableCell>
                               </TableRow>
                            ))}
                            <TableRow className="h-8 font-bold border-t"><TableCell colSpan={2} className="py-1 pl-4">Total Kewajiban</TableCell><TableCell className="py-1 text-right">Rp {data.totalLiabilities.toLocaleString()}</TableCell></TableRow>
@@ -141,11 +138,11 @@ export default function BalanceSheet() {
                      <Table className="text-xs border-b">
                         <TableBody>
                            <TableRow className="h-7 bg-zinc-50/50"><TableCell colSpan={3} className="py-1 italic font-bold">EKUITAS (MODAL)</TableCell></TableRow>
-                           {data.equity.map((a: any) => (
+                           {(data?.equity || []).map((a: any) => (
                               <TableRow key={a.id} className="h-7 hover:bg-zinc-50 border-0">
                                  <TableCell className="py-1 font-mono text-[11px] text-green-700 w-24">{a.code}</TableCell>
                                  <TableCell className="py-1">{a.name}</TableCell>
-                                 <TableCell className="py-1 text-right font-medium">Rp {a.balance.toLocaleString()}</TableCell>
+                                 <TableCell className="py-1 text-right font-medium">Rp {(a.balance || 0).toLocaleString()}</TableCell>
                               </TableRow>
                            ))}
                            <TableRow className="h-7">

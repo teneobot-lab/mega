@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { 
@@ -9,8 +9,9 @@ import {
   TableHeader, 
   TableRow 
 } from "../../components/ui/table";
-import { Play, Plus, History } from "lucide-react";
+import { Play, Plus } from "lucide-react";
 import { format } from "date-fns";
+import { recurringApi } from "../../lib/api-services";
 
 export default function RecurringTransactions() {
   const [data, setData] = useState<any[]>([]);
@@ -18,10 +19,10 @@ export default function RecurringTransactions() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/recurring", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(res.ok) setData(await res.json());
+      const resData = await recurringApi.getRecurring();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data");
     } finally {
       setLoading(false);
     }
@@ -33,15 +34,11 @@ export default function RecurringTransactions() {
 
   const handleExecute = async (id: string) => {
     try {
-      const res = await fetch(`/api/recurring/${id}/execute`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      if(!res.ok) throw new Error("Gagal eksekusi");
+      await recurringApi.executeRecurring(id);
       toast.success("Transaksi berhasil diproses");
       fetchData();
-    } catch(e) {
-      toast.error("Gagal menjalankan transaksi");
+    } catch(e: any) {
+      toast.error(e.message || "Gagal menjalankan transaksi");
     }
   };
 

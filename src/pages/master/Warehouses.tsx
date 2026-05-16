@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Home } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Warehouse = {
   id: string;
@@ -19,13 +20,10 @@ export default function Warehouses() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("/api/master/warehouses", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const json = await res.json();
-      if(res.ok) setData(json);
-    } catch (e) {
-      toast.error("Gagal mengambil data gudang");
+      const resData = await masterApi.getWarehouses();
+      setData(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data gudang");
     } finally {
       setLoading(false);
     }
@@ -43,7 +41,7 @@ export default function Warehouses() {
             <p className="text-xs text-zinc-500 font-medium">Data Master Lokasi Penyimpanan Persediaan</p>
         </div>
         <Button 
-            onClick={() => navigate("/warehouses/new")}
+            onClick={() => navigate("/master/warehouses/new")}
             className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-bold gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
         >
           <Plus className="h-4 w-4" /> Tambah Gudang
@@ -76,7 +74,7 @@ export default function Warehouses() {
                 <TableRow 
                     key={wh.id} 
                     className="group hover:bg-zinc-50 transition-colors h-14 cursor-pointer"
-                    onClick={() => navigate(`/warehouses/${wh.id}`)}
+                    onClick={() => navigate(`/master/warehouses/${wh.id}`)}
                 >
                   <TableCell className="font-bold text-[#1e3a5f] pl-6 group-hover:underline">{wh.code}</TableCell>
                   <TableCell className="text-sm font-semibold text-zinc-700">{wh.name}</TableCell>

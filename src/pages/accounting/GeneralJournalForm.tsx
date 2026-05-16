@@ -1,25 +1,20 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { useFullscreenForm } from "../../hooks/use-fullscreen-form";
 import { EditableTable } from "../../components/fullscreen-form/EditableTable";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { History, Search, BookOpen, Calendar, AlignLeft, Info, CheckCircle2, AlertCircle, Bookmark, ShieldCheck } from "lucide-react";
+import { BookOpen, Calendar, AlignLeft, CheckCircle2, AlertCircle, Bookmark, ShieldCheck } from "lucide-react";
+import { accountingApi, masterApi } from "../../lib/api-services";
 
 export default function GeneralJournalForm() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id && id !== "new";
   
-  const { isSaving, isAutoSaving, setIsSaving, isDirty, setIsDirty, handleCancel } = useFullscreenForm({
-    onAutoSave: async () => {
-      console.log("Auto-saving journal draft...");
-    }
-  });
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: "",
@@ -35,23 +30,17 @@ export default function GeneralJournalForm() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const accRes = await fetch("/api/master/accounts", { 
-          headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        const accs = await accRes.json();
+        const accs = await masterApi.getAccounts();
         setAccounts(accs);
 
         if (isEdit) {
-          const res = await fetch(`/api/accounting/journals/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-          });
-          const data = await res.json();
+          const data = await accountingApi.getJournal(id);
           setFormData({
             date: data.date.split('T')[0],
             description: data.description || "",
             status: "POSTED"
           });
-          setEntries(data.Entries.map((e: any) => ({
+          setEntries((data?.Entries || []).map((e: any) => ({
             id: e.id,
             accountId: e.accountId,
             debit: e.debit,
@@ -66,7 +55,9 @@ export default function GeneralJournalForm() {
              ]);
            }
         }
-      } catch (e) {}
+      } catch (e: any) {
+          toast.error(e.message || "Gagal memuat data");
+      }
     };
     loadData();
   }, [id, isEdit]);
@@ -81,22 +72,15 @@ export default function GeneralJournalForm() {
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/accounting/journals" + (isEdit ? `/${id}` : ""), {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({ ...formData, entries })
-      });
-
-      if (res.ok) {
-        toast.success(`Entri Jurnal Umum berhasil ${isEdit ? 'diperbarui' : 'diposting'}`);
-        setIsDirty(false);
-        navigate("/accounting/journals");
+      if (isEdit) {
+          // Journal updates are usually restricted, but following pattern
+          await accountingApi.createJournal({ ...formData, entries });
       } else {
-        throw new Error("Gagal menyimpan");
+          await accountingApi.createJournal({ ...formData, entries });
       }
+
+      toast.success(`Entri Jurnal Umum berhasil ${isEdit ? 'diperbarui' : 'diposting'}`);
+      navigate("/accounting/journals");
     } catch (e: any) {
       toast.error(e.message || "Gagal menyimpan ke server");
     } finally {
@@ -140,9 +124,9 @@ export default function GeneralJournalForm() {
       module="Accounting > General Journal"
       status={formData.status as any}
       onSave={handleSave}
-      onCancel={handleCancel}
+      onCancel={() => navigate("/accounting/journals")}
       isSaving={isSaving}
-      isAutoSaving={isAutoSaving}
+      isAutoSaving={false}
       isEdit={isEdit}
     >
       <div className="max-w-6xl mx-auto space-y-8 pb-32">

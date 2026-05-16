@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Plus, Users } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Contact = {
   id: string;
@@ -21,13 +22,10 @@ export default function Contacts() {
 
   const fetchContacts = async () => {
     try {
-      const res = await fetch("/api/master/contacts", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const data = await res.json();
-      if(res.ok) setContacts(data);
-    } catch (e) {
-      toast.error("Gagal mengambil data kontak");
+      const resData = await masterApi.getContacts();
+      setContacts(resData);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data kontak");
     } finally {
       setLoading(false);
     }
@@ -41,6 +39,7 @@ export default function Contacts() {
     switch(type) {
         case 'CUSTOMER': return 'bg-blue-100 text-blue-700';
         case 'SUPPLIER': return 'bg-orange-100 text-orange-700';
+        case 'SALESMAN': return 'bg-green-100 text-green-700';
         default: return 'bg-zinc-100 text-zinc-700';
     }
   };
@@ -53,7 +52,7 @@ export default function Contacts() {
             <p className="text-xs text-zinc-500 font-medium">Data Master Pelanggan, Supplier, dan Karyawan</p>
         </div>
         <Button 
-            onClick={() => navigate("/contacts/new")}
+            onClick={() => navigate("/master/contacts/new")}
             className="bg-[#1e3a5f] hover:bg-[#2a5286] text-white font-bold gap-2 shadow-lg hover:shadow-xl transition-all active:scale-95"
         >
           <Plus className="h-4 w-4" /> Tambah Kontak
@@ -88,7 +87,7 @@ export default function Contacts() {
                 <TableRow 
                     key={cont.id} 
                     className="group hover:bg-zinc-50 transition-colors h-14 cursor-pointer"
-                    onClick={() => navigate(`/contacts/${cont.id}`)}
+                    onClick={() => navigate(`/master/contacts/${cont.id}`)}
                 >
                   <TableCell className="font-bold text-[#1e3a5f] pl-6 group-hover:underline">{cont.code}</TableCell>
                   <TableCell className="text-sm font-semibold text-zinc-700">{cont.name}</TableCell>

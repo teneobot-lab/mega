@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Search, ChevronLeft, ArrowUpRight, ArrowDownLeft, History } from "lucide-react";
 import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
 import { 
   Table, 
   TableBody, 
@@ -12,7 +11,9 @@ import {
   TableRow 
 } from "../../components/ui/table";
 import { useNavigate } from "react-router-dom";
-import { exportToExcel, exportToPDF } from "../../lib/export-utils";
+import { exportToPDF } from "../../lib/export-utils";
+import { inventoryApi, masterApi } from "../../lib/api-services";
+import { toast } from "sonner";
 
 export default function StockCard() {
   const [items, setItems] = useState<any[]>([]);
@@ -22,23 +23,21 @@ export default function StockCard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("/api/master/items", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-    })
-    .then(res => res.json())
+    masterApi.getItems()
     .then(data => {
         setItems(data);
         if(data.length > 0) setSelectedItemId(data[0].id);
-    });
+    })
+    .catch(err => toast.error("Gagal mengambil data barang"));
   }, []);
 
   const fetchStockCard = async (id: string) => {
     setLoading(true);
     try {
-        const res = await fetch(`/api/inventory/stock-card/${id}`, {
-            headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-        });
-        if(res.ok) setData(await res.json());
+        const resData = await inventoryApi.getStockCard(id);
+        setData(resData);
+    } catch (e: any) {
+        toast.error(e.message || "Gagal mengambil data kartu stok");
     } finally {
         setLoading(false);
     }

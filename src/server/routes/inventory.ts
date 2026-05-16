@@ -9,16 +9,20 @@ router.use(authenticateToken);
 
 router.get("/summary", inventoryController.getInventorySummary);
 router.get("/stocks", async (req, res) => {
-   // Legacy but keep for now or point to controller
-   return inventoryController.getInventorySummary(req, res);
+   try {
+     return await inventoryController.getInventorySummary(req, res);
+   } catch(e) {
+     res.status(500).json({message: "Error fetching stocks"});
+   }
 });
 router.get("/stock-card/:itemId", inventoryController.getStockCard);
 router.get("/adjustments", inventoryController.getStockAdjusments);
+router.get("/adjustment", inventoryController.getStockAdjusments); // Added for audit compliance
 
 // ... rest of logic for adjust/transfer could also stay or move to controller
 // For now I'll just keep the existing router.post for convenience but use the new exports for the rest
 
-router.post("/adjust", async (req, res) => {
+router.post("/adjustment", async (req, res) => {
     try {
       const { date, warehouseId, itemId, adjustQty, notes } = req.body;
       const amount = Number(adjustQty);

@@ -65,6 +65,8 @@ import StockTransferForm from "./pages/inventory/StockTransferForm";
 import StockCard from "./pages/inventory/StockCard";
 
 import Receipt from "./pages/finance/Receipt";
+import ExpenseForm from "./pages/finance/ExpenseForm";
+import ReceiptForm from "./pages/finance/ReceiptForm";
 
 import FixedAssets from "./pages/assets/FixedAssets";
 import FixedAssetForm from "./pages/assets/FixedAssetForm";
@@ -116,24 +118,24 @@ export default function App() {
             <Route path="/master/currencies" element={<Currencies />} />
             <Route path="/master/currencies/new" element={<CurrencyForm />} />
             <Route path="/master/currencies/:id" element={<CurrencyForm />} />
-            <Route path="/master/uom" element={<Uoms />} />
-            <Route path="/master/uom/new" element={<UomForm />} />
-            <Route path="/master/uom/:id" element={<UomForm />} />
+            <Route path="/master/uoms" element={<Uoms />} />
+            <Route path="/master/uoms/new" element={<UomForm />} />
+            <Route path="/master/uoms/:id" element={<UomForm />} />
             <Route path="/master/item-categories" element={<ItemCategories />} />
             <Route path="/master/item-categories/new" element={<ItemCategoryForm />} />
             <Route path="/master/item-categories/:id" element={<ItemCategoryForm />} />
-            <Route path="/accounts" element={<ChartOfAccounts />} />
-            <Route path="/accounts/new" element={<AccountForm />} />
-            <Route path="/accounts/:id" element={<AccountForm />} />
-            <Route path="/contacts" element={<Contacts />} />
-            <Route path="/contacts/new" element={<ContactForm />} />
-            <Route path="/contacts/:id" element={<ContactForm />} />
-            <Route path="/items" element={<Items />} />
-            <Route path="/items/new" element={<ItemForm />} />
-            <Route path="/items/:id" element={<ItemForm />} />
-            <Route path="/warehouses" element={<Warehouses />} />
-            <Route path="/warehouses/new" element={<WarehouseForm />} />
-            <Route path="/warehouses/:id" element={<WarehouseForm />} />
+            <Route path="/master/coa" element={<ChartOfAccounts />} />
+            <Route path="/master/coa/new" element={<AccountForm />} />
+            <Route path="/master/coa/:id" element={<AccountForm />} />
+            <Route path="/master/contacts" element={<Contacts />} />
+            <Route path="/master/contacts/new" element={<ContactForm />} />
+            <Route path="/master/contacts/:id" element={<ContactForm />} />
+            <Route path="/master/items" element={<Items />} />
+            <Route path="/master/items/new" element={<ItemForm />} />
+            <Route path="/master/items/:id" element={<ItemForm />} />
+            <Route path="/master/warehouses" element={<Warehouses />} />
+            <Route path="/master/warehouses/new" element={<WarehouseForm />} />
+            <Route path="/master/warehouses/:id" element={<WarehouseForm />} />
             
             {/* Purchasing */}
             <Route path="/purchasing" element={<PurchasingDashboard />} />
@@ -175,7 +177,11 @@ export default function App() {
             <Route path="/cash-bank/transfer/new" element={<TransferBankForm />} />
             <Route path="/cash-bank/transfer/:id" element={<TransferBankForm />} />
             <Route path="/cash-bank/expense" element={<Expense />} />
+            <Route path="/cash-bank/expense/new" element={<ExpenseForm />} />
+            <Route path="/cash-bank/expense/:id" element={<ExpenseForm />} />
             <Route path="/cash-bank/receipt" element={<Receipt />} />
+            <Route path="/cash-bank/receipt/new" element={<ReceiptForm />} />
+            <Route path="/cash-bank/receipt/:id" element={<ReceiptForm />} />
 
             {/* Accounting */}
             <Route path="/accounting" element={<AccountingDashboard />} />

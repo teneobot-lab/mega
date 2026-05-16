@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Fingerprint, Plus, Calculator, ArrowRightSquare, Search, Layers, Wallet } from "lucide-react";
+import { Plus, ArrowRightSquare, Search, Layers, Wallet } from "lucide-react";
+import { masterApi } from "../../lib/api-services";
 
 type Account = {
   id: string;
@@ -20,13 +21,10 @@ export default function ChartOfAccounts() {
 
   const fetchAccounts = async () => {
     try {
-      const res = await fetch("/api/master/accounts", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
-      });
-      const data = await res.json();
-      if(res.ok) setAccounts(data);
-    } catch (e) {
-      toast.error("Gagal mengambil data akun");
+      const data = await masterApi.getAccounts();
+      setAccounts(data);
+    } catch (e: any) {
+      toast.error(e.message || "Gagal mengambil data akun");
     } finally {
       setLoading(false);
     }
