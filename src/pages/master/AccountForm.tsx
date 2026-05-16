@@ -6,6 +6,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { masterApi } from "../../lib/api-services"; 
 import { ConfirmDeleteDialog } from "../../components/ui/confirm-delete-dialog";
+import { Skeleton } from "../../components/ui/skeleton";
+import { ErrorMessage } from "../../components/ui/error-message";
 import { Fingerprint, Bookmark, Layers, AlertCircle, Info, Calculator, ShieldCheck, AlignLeft, ArrowRight, History } from "lucide-react";
 
 export default function AccountForm() {
@@ -16,6 +18,7 @@ export default function AccountForm() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(isEdit);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     code: "",
     name: "",
@@ -23,23 +26,28 @@ export default function AccountForm() {
     description: "",
   });
 
+  const fetchData = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const resData = await masterApi.getAccount(id);
+      setFormData({
+        code: resData.code || "",
+        name: resData.name || "",
+        type: resData.type || "ASSET",
+        description: resData.description || "",
+      });
+    } catch (e: any) {
+      setError(e.message || "Gagal mengambil data akun");
+      toast.error(e.message || "Gagal mengambil data akun");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (isEdit) {
-      const fetchData = async () => {
-        try {
-          const resData = await masterApi.getAccount(id);
-          setFormData({
-            code: resData.code || "",
-            name: resData.name || "",
-            type: resData.type || "ASSET",
-            description: resData.description || "",
-          });
-        } catch (e: any) {
-          toast.error(e.message || "Gagal mengambil data akun");
-        } finally {
-          setIsLoading(false);
-        }
-      };
       fetchData();
     }
   }, [isEdit, id]);
@@ -95,8 +103,22 @@ export default function AccountForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      {isLoading ? (
-          <div className="flex items-center justify-center h-64 font-bold text-zinc-400 italic">Memuat data...</div>
+      {error ? (
+        <div className="max-w-2xl mx-auto py-20 bg-white rounded-[3rem] shadow-xl border border-zinc-100">
+          <ErrorMessage message={error} onRetry={fetchData} />
+        </div>
+      ) : isLoading ? (
+        <div className="max-w-6xl mx-auto space-y-12 pb-32">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-7 space-y-10">
+              <Skeleton className="h-96 w-full rounded-[3.5rem] bg-zinc-50" />
+            </div>
+            <div className="lg:col-span-5 space-y-10">
+              <Skeleton className="h-64 w-full rounded-[3.5rem] bg-zinc-50" />
+              <Skeleton className="h-48 w-full rounded-[3rem] bg-zinc-50" />
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="max-w-6xl mx-auto space-y-12 pb-32">
             {/* Core Architecture Section */}
@@ -121,19 +143,19 @@ export default function AccountForm() {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Account Code / Index <span className="text-red-500">*</span></Label>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Account Code / Index <span className="text-red-500 font-bold">*</span></Label>
                                     <div className="relative">
                                         <Input 
                                             className="h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-8 text-2xl font-black text-[#1e3a5f] tracking-tighter placeholder:text-zinc-200 focus:bg-white focus:border-[#1e3a5f]/20 outline-none transition-all shadow-inner" 
-                                            placeholder="110-001"
+                                            placeholder="e.g. 110-001"
                                             value={formData.code}
                                             onChange={e => setFormData({...formData, code: e.target.value})}
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Reporting Category <span className="text-red-500">*</span></Label>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Reporting Category <span className="text-red-500 font-bold">*</span></Label>
                                     <div className="relative">
                                         <Layers className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
                                         <select 
@@ -153,13 +175,13 @@ export default function AccountForm() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Legal Account Name <span className="text-red-500">*</span></Label>
+                            <div className="space-y-3">
+                                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Legal Account Name <span className="text-red-500 font-bold">*</span></Label>
                                 <div className="relative">
                                     <Bookmark className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
                                     <Input 
                                         className="h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] pl-16 pr-8 text-lg font-black text-[#1e3a5f] outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all italic shadow-inner" 
-                                        placeholder="Contoh: Saldo Bank Utama (IDR)"
+                                        placeholder="e.g. Saldo Bank Utama (IDR)"
                                         value={formData.name}
                                         onChange={e => setFormData({...formData, name: e.target.value})}
                                     />
@@ -172,7 +194,7 @@ export default function AccountForm() {
                                 </Label>
                                 <textarea 
                                     className="w-full h-32 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 text-sm font-medium text-zinc-500 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
-                                    placeholder="Deskripsikan kegunaan spesifik akun ini..."
+                                    placeholder="Deskripsikan kegunaan spesifik akun ini untuk pelaporan..."
                                     value={formData.description}
                                     onChange={e => setFormData({...formData, description: e.target.value})}
                                 />

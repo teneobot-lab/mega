@@ -4,8 +4,10 @@ import { toast } from "sonner";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
-import { Wallet, Calendar, FileText, Landmark, Search, History, Users, ArrowRight, ShieldCheck, CreditCard, ChevronRight, Zap, Info, ArrowUpRight } from "lucide-react";
+import { Wallet, Calendar, FileText, Landmark, Search, History, Users, CreditCard, Zap, Info, ArrowUpRight } from "lucide-react";
 import { salesApi, masterApi } from "../../lib/api-services";
+import { Skeleton } from "../../components/ui/skeleton";
+import { ErrorMessage } from "../../components/ui/error-message";
 
 export default function SalesPaymentForm() {
   const navigate = useNavigate();
@@ -13,6 +15,8 @@ export default function SalesPaymentForm() {
   const isEdit = !!id && id !== "new";
   
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
+  const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -27,46 +31,52 @@ export default function SalesPaymentForm() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [allInvs, allAccs] = await Promise.all([
-          salesApi.getInvoices(),
-          masterApi.getAccounts(),
-        ]);
-        
-        const unpaidInvs = allInvs.filter((i: any) => i.balance > 0 || i.id === formData.invoiceId);
-        const cashBankAccs = allAccs.filter((a: any) => a.type === "ASSET" && (a.name.toLowerCase().includes("kas") || a.name.toLowerCase().includes("bank") || a.code.startsWith('111')));
-        
-        setInvoices(unpaidInvs);
-        setAccounts(cashBankAccs);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [allInvs, allAccs] = await Promise.all([
+        salesApi.getInvoices(),
+        masterApi.getAccounts(),
+      ]);
+      
+      const unpaidInvs = allInvs.filter((i: any) => i.balance > 0 || i.id === formData.invoiceId);
+      const cashBankAccs = allAccs.filter((a: any) => a.type === "ASSET" && (a.name.toLowerCase().includes("kas") || a.name.toLowerCase().includes("bank") || a.code.startsWith('111')));
+      
+      setInvoices(unpaidInvs);
+      setAccounts(cashBankAccs);
 
-        if (isEdit) {
-          const data = await salesApi.getPayment(id!);
-          setFormData({
-            date: data.date.split('T')[0],
-            contactId: data.contactId,
-            invoiceId: data.Lines?.[0]?.invoiceId || "",
-            accountId: data.Journals?.[0]?.Entries?.find((e: any) => e.debit > 0)?.accountId || "",
-            amount: data.amount,
-            notes: data.notes || "",
-            status: "PAID"
-          });
-        } else {
-          if (unpaidInvs.length > 0) {
-            setFormData(prev => ({ 
-                ...prev, 
-                invoiceId: unpaidInvs[0].id,
-                contactId: unpaidInvs[0].contactId,
-                amount: unpaidInvs[0].balance 
-            }));
-          }
-          if (cashBankAccs.length > 0) setFormData(prev => ({ ...prev, accountId: cashBankAccs[0].id }));
+      if (isEdit) {
+        const data = await salesApi.getPayment(id!);
+        setFormData({
+          date: data.date.split('T')[0],
+          contactId: data.contactId,
+          invoiceId: data.Lines?.[0]?.invoiceId || "",
+          accountId: data.Journals?.[0]?.Entries?.find((e: any) => e.debit > 0)?.accountId || "",
+          amount: data.amount,
+          notes: data.notes || "",
+          status: "PAID"
+        });
+      } else {
+        if (unpaidInvs.length > 0) {
+          setFormData(prev => ({ 
+            ...prev, 
+            invoiceId: unpaidInvs[0].id,
+            contactId: unpaidInvs[0].contactId,
+            amount: unpaidInvs[0].balance 
+          }));
         }
-      } catch (e: any) {
-          toast.error(e.message || "Gagal memuat data");
+        if (cashBankAccs.length > 0) setFormData(prev => ({ ...prev, accountId: cashBankAccs[0].id }));
       }
-    };
+    } catch (e: any) {
+        setError(e.message || "Gagal memuat data");
+        toast.error(e.message || "Gagal memuat data");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, [id, isEdit]);
 
@@ -108,7 +118,7 @@ export default function SalesPaymentForm() {
 
   return (
     <FullscreenFormLayout
-      title={isEdit ? `Edit Receipt Note #${id}` : "Penerimaan Pembayaran Piutang (AR Settlement) Baru"}
+      title={isEdit ? `Edit Receipt Note: #${id?.slice(-6)}` : "Penerimaan Pembayaran Piutang (AR Settlement) Baru"}
       module="Sales > Sales Payment Entry"
       status={formData.status as any}
       onSave={handleSave}
@@ -116,7 +126,21 @@ export default function SalesPaymentForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      <div className="max-w-6xl mx-auto space-y-12 pb-32">
+      {error ? (
+        <div className="max-w-2xl mx-auto py-20 p-12 bg-white rounded-[3rem] shadow-xl border border-zinc-100">
+          <ErrorMessage message={error} onRetry={loadData} />
+        </div>
+      ) : loading ? (
+        <div className="max-w-6xl mx-auto p-12 space-y-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <Skeleton className="h-32 w-full rounded-[2rem]" />
+                <Skeleton className="h-32 w-full rounded-[2rem]" />
+                <Skeleton className="h-48 w-full col-span-2 rounded-[2rem]" />
+            </div>
+            <Skeleton className="h-96 w-full rounded-[3rem]" />
+        </div>
+      ) : (
+      <div className="max-w-6xl mx-auto space-y-12 pb-32 pt-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             {/* Left Column: Settlement Target & Account */}
             <div className="lg:col-span-12 xl:col-span-8 space-y-10">
@@ -137,7 +161,7 @@ export default function SalesPaymentForm() {
                         </div>
 
                         <div className="space-y-4">
-                            <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Target Open Invoice <span className="text-red-500">*</span></Label>
+                            <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Target Open Invoice <span className="text-red-500 font-bold">*</span></Label>
                             <div className="relative group/sel">
                                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none group-focus-within/sel:text-[#1e3a5f] transition-colors" />
                                 <select 
@@ -199,9 +223,9 @@ export default function SalesPaymentForm() {
                         </div>
 
                         <div className="space-y-4">
-                            <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Received to (CASH/BANK ACCOUNT) <span className="text-red-500">*</span></Label>
+                            <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Received to (CASH/BANK ACCOUNT) <span className="text-red-500 font-bold">*</span></Label>
                             <div className="relative">
-                                <ShieldCheck className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                                <Wallet className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
                                 <select 
                                     className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] pl-16 pr-8 text-lg font-black text-[#1e3a5f] outline-none transition-all appearance-none italic focus:bg-white shadow-inner"
                                     value={formData.accountId}
@@ -217,9 +241,9 @@ export default function SalesPaymentForm() {
                                  <Zap className="w-3.5 h-3.5 text-indigo-400" /> Transaction Memo
                             </Label>
                             <textarea 
-                                className="w-full h-28 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 text-sm font-medium text-zinc-500 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
+                                className="w-full h-32 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 text-sm font-medium text-zinc-500 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
                                 placeholder="Misal: Pelunasan sisa bayar (70%) via Transfer BCA operasional..."
-                                value={formData.notes}
+                               value={formData.notes}
                                 onChange={e => { setFormData({...formData, notes: e.target.value}); }}
                             />
                         </div>
@@ -298,6 +322,7 @@ export default function SalesPaymentForm() {
             </div>
         </div>
       </div>
+      )}
     </FullscreenFormLayout>
   );
 }

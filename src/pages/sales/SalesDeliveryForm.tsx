@@ -5,8 +5,10 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { FullscreenFormLayout } from "../../components/fullscreen-form/FullscreenFormLayout";
 import { TransactionCart, CartItem } from "../../components/transaction/TransactionCart";
-import { Truck, Box, Calendar, FileText, Warehouse, History, Search, ArrowRight, PackageCheck } from "lucide-react";
+import { Truck, Calendar, FileText, Warehouse, History, PackageCheck } from "lucide-react";
 import { salesApi, masterApi } from "../../lib/api-services";
+import { Skeleton } from "../../components/ui/skeleton";
+import { ErrorMessage } from "../../components/ui/error-message";
 
 export default function SalesDeliveryForm() {
   const navigate = useNavigate();
@@ -14,6 +16,9 @@ export default function SalesDeliveryForm() {
   const isEdit = !!id && id !== "new";
   
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
+  const [error, setError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString()?.split('T')[0],
     soId: "",
@@ -27,44 +32,50 @@ export default function SalesDeliveryForm() {
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [availableItems, setAvailableItems] = useState<any[]>([]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [w, s, itm] = await Promise.all([
-          masterApi.getWarehouses(),
-          salesApi.getOrders(),
-          masterApi.getItems()
-        ]);
-        
-        setWarehouses(w);
-        const validSos = s.filter((p: any) => p.status === "APPROVED" || p.id === formData.soId);
-        setSos(validSos);
-        setAvailableItems(itm);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [w, s, itm] = await Promise.all([
+        masterApi.getWarehouses(),
+        salesApi.getOrders(),
+        masterApi.getItems()
+      ]);
+      
+      setWarehouses(w);
+      const validSos = s.filter((p: any) => p.status === "APPROVED" || p.id === formData.soId);
+      setSos(validSos);
+      setAvailableItems(itm);
 
-        if (isEdit) {
-          const data = await salesApi.getDelivery(id!);
-          setFormData({
-            date: data.date?.split('T')[0],
-            soId: data.soId || "",
-            warehouseFromId: data.warehouseFromId || (w.length > 0 ? w[0].id : ""),
-            notes: data.notes || "",
-            status: "DELIVERED"
-          });
-          setCartItems((data.Lines || []).map((l: any) => ({
-            id: l.id,
-            itemId: l.itemId,
-            name: l.item?.name || 'Item',
-            code: l.item?.code || '',
-            uom: l.item?.baseUom?.name || 'Unit',
-            qty: l.qty
-          })));
-        } else {
-          if (w.length > 0) setFormData(prev => ({ ...prev, warehouseFromId: w[0].id }));
-        }
-      } catch (e: any) {
-          toast.error(e.message || "Gagal memuat data pendukung");
+      if (isEdit) {
+        const data = await salesApi.getDelivery(id!);
+        setFormData({
+          date: data.date?.split('T')[0],
+          soId: data.soId || "",
+          warehouseFromId: data.warehouseFromId || (w.length > 0 ? w[0].id : ""),
+          notes: data.notes || "",
+          status: "DELIVERED"
+        });
+        setCartItems((data.Lines || []).map((l: any) => ({
+          id: l.id,
+          itemId: l.itemId,
+          name: l.item?.name || 'Item',
+          code: l.item?.code || '',
+          uom: l.item?.baseUom?.name || 'Unit',
+          qty: l.qty
+        })));
+      } else {
+        if (w.length > 0) setFormData(prev => ({ ...prev, warehouseFromId: w[0].id }));
       }
-    };
+    } catch (e: any) {
+        setError(e.message || "Gagal memuat data pendukung");
+        toast.error(e.message || "Gagal memuat data pendukung");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, [id, isEdit]);
 
@@ -110,11 +121,9 @@ export default function SalesDeliveryForm() {
     }
   };
 
-  const selectedSo = sos.find(p => p.id === formData.soId);
-
   return (
     <FullscreenFormLayout
-      title={isEdit ? `Edit Pengiriman #${id}` : "Pengiriman Barang (DO) Baru"}
+      title={isEdit ? `Edit Pengiriman: #${id?.slice(-6)}` : "Buat Pengiriman Barang (DO) Baru"}
       module="Penjualan > Sales Delivery"
       status={formData.status as any}
       onSave={handleSave}
@@ -122,72 +131,94 @@ export default function SalesDeliveryForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      <div className="p-2 space-y-2">
-        <div className="ac-form-header grid grid-cols-4 gap-4">
-            <div className="ac-field-group">
-                <Label className="ac-label">Referensi Sales Order <span className="text-red-500">*</span></Label>
-                <select 
-                    className="ac-input"
-                    value={formData.soId}
-                    onChange={e => handleSoChange(e.target.value)}
-                >
-                    <option value="">-- Pilih Sales Order --</option>
-                    {sos.map(s => <option key={s.id} value={s.id}>{s.soNumber} ({s.customer?.name})</option>)}
-                </select>
+      {error ? (
+        <div className="max-w-2xl mx-auto py-20 p-12 bg-white rounded-[3rem] shadow-xl border border-zinc-100">
+          <ErrorMessage message={error} onRetry={loadData} />
+        </div>
+      ) : loading ? (
+        <div className="max-w-6xl mx-auto p-12 space-y-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <Skeleton className="h-32 w-full rounded-[2rem]" />
+                <Skeleton className="h-32 w-full rounded-[2rem]" />
+                <Skeleton className="h-48 w-full col-span-2 rounded-[2rem]" />
+            </div>
+            <Skeleton className="h-96 w-full rounded-[3rem]" />
+        </div>
+      ) : (
+      <div className="max-w-6xl mx-auto p-12 space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-10 rounded-[3rem] border border-zinc-100 shadow-sm">
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Referensi Sales Order <span className="text-red-500 font-bold">*</span></Label>
+                <div className="relative">
+                    <FileText className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <select 
+                        className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-16 text-sm font-bold text-zinc-700 outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner appearance-none"
+                        value={formData.soId}
+                        onChange={e => handleSoChange(e.target.value)}
+                    >
+                        <option value="">Pilih Sales Order...</option>
+                        {sos.map(s => <option key={s.id} value={s.id}>{s.soNumber} ({s.customer?.name})</option>)}
+                    </select>
+                </div>
             </div>
             
-            <div className="ac-field-group">
-                <Label className="ac-label">Gudang Pengeluaran</Label>
-                <select 
-                    className="ac-input"
-                    value={formData.warehouseFromId}
-                    onChange={e => { setFormData({...formData, warehouseFromId: e.target.value}); }}
-                >
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                </select>
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Gudang Pengeluaran <span className="text-red-500 font-bold">*</span></Label>
+                <div className="relative">
+                    <Warehouse className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <select 
+                        className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-16 text-sm font-bold text-zinc-700 outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner appearance-none"
+                        value={formData.warehouseFromId}
+                        onChange={e => setFormData({...formData, warehouseFromId: e.target.value})}
+                    >
+                        {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                </div>
             </div>
 
-            <div className="ac-field-group">
-                <Label className="ac-label">Tgl Rencana Kirim</Label>
-                <Input 
-                    type="date"
-                    className="ac-input" 
-                    value={formData.date}
-                    onChange={e => { setFormData({...formData, date: e.target.value}); }}
-                />
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Tgl Rencana Kirim <span className="text-red-500 font-bold">*</span></Label>
+                <div className="relative">
+                    <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <Input 
+                        type="date"
+                        className="h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-16 text-sm font-bold text-zinc-700 outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner" 
+                        value={formData.date}
+                        onChange={e => setFormData({...formData, date: e.target.value})}
+                    />
+                </div>
             </div>
-
-            <div className="ac-field-group">
-                <Label className="ac-label">Catatan</Label>
-                <Input 
-                    className="ac-input"
-                    placeholder="Catatan..."
-                    value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
-                />
+            
+            <div className="space-y-3 col-span-full">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Catatan / Keterangan</Label>
+                <div className="relative">
+                    <FileText className="absolute left-6 top-6 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <textarea 
+                        className="w-full h-32 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 pl-16 text-sm font-medium text-zinc-700 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
+                        placeholder="Contoh: Dikirim via JNE (Resi: 12345), atau armada internal cabang..."
+                        value={formData.notes}
+                        onChange={e => setFormData({...formData, notes: e.target.value})}
+                    />
+                </div>
             </div>
         </div>
 
-        <div className="ac-table-container">
+        <div className="bg-white p-10 rounded-[3rem] border border-zinc-100 shadow-sm">
             <TransactionCart 
                 items={cartItems}
                 availableItems={availableItems}
-                onChange={(items) => {
-                    setCartItems(items);
-                }}
+                onChange={setCartItems}
             />
         </div>
-      </div>
 
-        {/* Footer / Info */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             <div className="lg:col-span-8 bg-zinc-50 p-8 rounded-[2.5rem] border border-dashed border-zinc-200 space-y-4">
                 <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] pl-1 italic">Shipping Instructions / Tracking Number</Label>
                 <textarea 
-                    className="w-full h-28 bg-white border border-zinc-200 rounded-2xl p-5 text-sm font-medium focus:ring-4 focus:ring-zinc-100 outline-none transition-all italic placeholder:text-zinc-300"
-                    placeholder="Contoh: Dikirim via JNE (Resi: 12345), atau armada internal cabang. Berikan catatan detail pengemasan jika ada..."
+                    className="w-full h-28 bg-white border border-zinc-200 rounded-2xl p-5 text-sm font-medium focus:ring-4 focus:ring-zinc-100 outline-none transition-all italic placeholder:text-zinc-300 shadow-inner resize-none"
+                    placeholder="Catatan detail pengemasan jika ada..."
                     value={formData.notes}
-                    onChange={e => { setFormData({...formData, notes: e.target.value}); }}
+                    onChange={e => setFormData({...formData, notes: e.target.value})}
                 />
             </div>
 
@@ -201,6 +232,8 @@ export default function SalesDeliveryForm() {
                 </div>
             </div>
         </div>
+      </div>
+      )}
     </FullscreenFormLayout>
   );
 }

@@ -14,7 +14,6 @@ export default function SalesOrderForm() {
   const isEdit = !!id && id !== "new";
   
   const [isSaving, setIsSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
     date: new Date().toISOString()?.split('T')[0],
     customerId: "",
@@ -25,11 +24,12 @@ export default function SalesOrderForm() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [availableItems, setAvailableItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(isEdit);
 
   useEffect(() => {
-    // Load dependencies
     const loadData = async () => {
       try {
+        setLoading(true);
         const [custs, itms] = await Promise.all([
           masterApi.getContacts("CUSTOMER"),
           masterApi.getItems()
@@ -60,6 +60,8 @@ export default function SalesOrderForm() {
         }
       } catch (e: any) {
           toast.error(e.message || "Gagal memuat data pendukung");
+      } finally {
+          setLoading(false);
       }
     };
     loadData();
@@ -105,54 +107,61 @@ export default function SalesOrderForm() {
       isSaving={isSaving}
       isEdit={isEdit}
     >
-      <div className="p-2 space-y-2">
-        <div className="ac-form-header grid grid-cols-4 gap-4">
-            <div className="ac-field-group">
-                <Label className="ac-label">Pelanggan <span className="text-red-500">*</span></Label>
-                <select 
-                    className="ac-input"
-                    value={formData.customerId}
-                    onChange={e => { setFormData({...formData, customerId: e.target.value}); setIsDirty(true); }}
-                >
-                    <option value="">Pilih Pelanggan...</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.category || 'Personal'}</option>)}
-                </select>
+      <div className="max-w-6xl mx-auto p-12 space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-10 rounded-[3rem] border border-zinc-100 shadow-sm">
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Pelanggan <span className="text-red-500 font-bold">*</span></Label>
+                <div className="relative">
+                    <User className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <select 
+                        className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-16 text-sm font-bold text-zinc-700 outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner appearance-none"
+                        value={formData.customerId}
+                        onChange={e => setFormData({...formData, customerId: e.target.value})}
+                    >
+                        <option value="">Pilih Pelanggan...</option>
+                        {customers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.category || 'Personal'}</option>)}
+                    </select>
+                </div>
             </div>
 
-            <div className="ac-field-group">
-                <Label className="ac-label">Tanggal Pesanan</Label>
-                <Input 
-                  type="date"
-                  className="ac-input" 
-                  value={formData.date}
-                  onChange={e => { setFormData({...formData, date: e.target.value}); setIsDirty(true); }}
-                />
+            <div className="space-y-3">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Tanggal Pesanan <span className="text-red-500 font-bold">*</span></Label>
+                <div className="relative">
+                    <Calendar className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <Input 
+                      type="date"
+                      className="h-16 bg-zinc-50 border-2 border-zinc-100 rounded-[1.5rem] px-16 text-sm font-bold text-zinc-700 outline-none focus:bg-white focus:border-[#1e3a5f]/20 transition-all shadow-inner" 
+                      value={formData.date}
+                      onChange={e => setFormData({...formData, date: e.target.value})}
+                    />
+                </div>
             </div>
 
-            <div className="ac-field-group col-span-2">
-                <Label className="ac-label">Memo Transaksi</Label>
-                <Input 
-                  className="ac-input" 
-                  placeholder="Keterangan..."
-                  value={formData.notes}
-                  onChange={e => { setFormData({...formData, notes: e.target.value}); setIsDirty(true); }}
-                />
+            <div className="space-y-3 col-span-full">
+                <Label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.25em] pl-1 italic">Memo Transaksi</Label>
+                <div className="relative">
+                    <FileText className="absolute left-6 top-6 w-5 h-5 text-indigo-300 pointer-events-none" />
+                    <textarea 
+                        className="w-full h-32 bg-zinc-50 border-2 border-zinc-100 rounded-[2rem] p-8 pl-16 text-sm font-medium text-zinc-700 outline-none focus:bg-white focus:border-indigo-100 transition-all italic placeholder:text-zinc-200 shadow-inner resize-none"
+                        placeholder="Contoh: Pesanan untuk dikirim ke cabang utama..."
+                        value={formData.notes}
+                        onChange={e => setFormData({...formData, notes: e.target.value})}
+                    />
+                </div>
             </div>
         </div>
 
-        <div className="ac-table-container">
+        <div className="bg-white p-10 rounded-[3rem] border border-zinc-100 shadow-sm">
             <TransactionCart 
                 items={cartItems}
                 availableItems={availableItems}
                 showPrice={true}
-                onChange={(items) => {
-                    setCartItems(items);
-                    setIsDirty(true);
-                }}
+                onChange={setCartItems}
             />
         </div>
       </div>
     </FullscreenFormLayout>
   );
 }
+
 
